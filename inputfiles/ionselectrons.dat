@@ -1,0 +1,9 @@
+0.,10.
+2
+1.,0.,1.,1.
+2500.,0.,50.,50.
+
+# Density velocity Tperp Tpara.
+# First species is ions. Second is electrons.
+# Electrons behave like very hot ions: T_i =sqrt(m_i/m_e) T_e but
+# with very high density: n_i = m_i/m_e n_e.

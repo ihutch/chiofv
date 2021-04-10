@@ -1,0 +1,4 @@
+0.,10       # Angle of k to the parallel direction. Electron temperature.
+1           # 1 component
+1.,1.,1.,1. # Density, Velocity, Tperp, Tpara for each component
+
