@@ -83,7 +83,7 @@ c Parse command line for changes to defaults
       call parsecmdline(gpar,npar,ngmax,ng,vdmin,vdmax,vw,Te,theta
      $     ,vwfac,vpimax,nim,nmm,nimax,smfac,laspect,lcolor,eldweight
      $     ,vflat,wflat,fflat,lextra,amp,nw,lgrowth,lcoptic,cfilename
-     $     ,ltwotone,vrgfac,lthresh)
+     $     ,ltwotone,vrgfac,lthresh,rmitome)
 c---------------------------------------------------------------
       if(.not.lcoptic)then
 c Construct the test distribution function as a sum of Gaussians.
@@ -1006,7 +1006,7 @@ c     $              ,curfi(icur),vprm,vpim
             endif
          enddo
 c Segment completed
-         if(icur.gt.1 .and. vpimx.gt.-0.05)then
+         if(id.gt.0.and.icur.gt.1 .and. vpimx.gt.-0.05)then
             ncur=ncur+1
 c There is a curve to plot. Plot it.
             call dashset(0)
@@ -1066,7 +1066,7 @@ c******************************************************************
       subroutine parsecmdline(gpar,npar,ngmax,ng,vdmin,vdmax,vw,Te,theta
      $     ,vwfac,vpimax,nim,nmm,nimax,smfac,laspect,lcolor,eldweight
      $     ,vflat,wflat,fflat,lextra,amp,nw,lgrowth,lcoptic,cfilename
-     $     ,ltwotone,vrgfac,lthresh)
+     $     ,ltwotone,vrgfac,lthresh,rmitome)
       integer npar,ngmax
       real gpar(npar,ngmax)
       real vdmin,vdmax,vw,Te,theta,vwfac,amp
@@ -1130,6 +1130,7 @@ c Switch arguments.
             if(argument(1:2).eq.'-x')read(argument(3:),*,err=103)vrgfac
             if(argument(1:2).eq.'-p')read(argument(3:),*,err=103)nw
             if(argument(1:2).eq.'-T')read(argument(3:),*,err=103)Te
+            if(argument(1:2).eq.'-r')read(argument(3:),*,err=103)rmitome
             if(argument(1:2).eq.'-v')then
                if(lgset)ng=ng+1
                read(argument(3:),*,err=103,end=105)(gpar(k,ng),k=1,4)
@@ -1184,6 +1185,7 @@ c               write(*,*)fflat,vflat,wflat
       write(*,'(a,f7.4,a)')' -i max imaginary vp        [',vpimax,']'
       write(*,'(a,f7.4,a)')' -u uncertainty (noise)     [',amp,']'
       write(*,'(a,f7.4,a)')' -T Te                      [',Te,']'
+      write(*,'(a,f7.1,a)')' -r mi/me                   [',rmitome,']'
       write(*,'(a,f7.4,a)')' -x vrange fraction plot    [',vrgfac,']'
       write(*,*)'-s smoothing factor [1]   -w integration width factor'
      $     ,' [4]'

@@ -560,7 +560,7 @@ don't lead to instability. Stringer\footnote{T E Stringer, Plasma
 \Delta v/2 < \sqrt{T_e/m_i}$ for ion-ion instability when equal
 Maxwellian ion distributions are separated by velocity $\Delta v$.
 
-\section{Oblique Propagation}
+\section{Other Wave Situations}
 
 So far the analysis has been of electrostatic waves either in an
 unmagnetized plasma or propagating parallel to the magnetic field.
@@ -568,7 +568,7 @@ Moreover here and in subsequent analyses the distribution function to
 be used has been the one dimensional distribution, i.e.\ integrated
 over velocities perpendicular to the wavevector $\bm k$.  
 
-\subsection{Beam-like Ion distributions}
+\subsection{Magnetized Beam-like Ion distributions}
 If the ion distribution in three velocity directions were really
 represented by two shifted but otherwise isotropic finite width beams
 (e.g.\ shifted 3-D Gaussians) and the plasma were unmagnetized, then
@@ -634,6 +634,40 @@ ion acoustic case. When $T_e/T_0\to\infty$, and $\chi_e$ becomes
 negligible, the ion acoustic instability is exactly equivalent to the
 Langmuir stability with appropriately scaled velocity.
 
+
+\subsection{Electron-acoustic waves}
+
+A type of wave occurring in non-Maxwellian electron distributions with
+two components of different temperatures is often called the
+electron-acoustic wave. There is nothing particularly different about
+such waves except that normal Langmuir waves are strongly damped
+unless their phase speed substantially exceeds the electron thermal
+speed. That criterion, $\omega/k\gg \sqrt{T_e/m_e}$, is equivalent to
+$k\lambda_{De}\ll 1$, taking $\omega\simeq \omega_{pe}$. By contrast
+we can model a hot electron component and a cold electron component,
+with negligible ion response by
+suppressing code electron response with $T_e$ large, and then treat
+the code's ion components as actually being electrons. (For example
+\verb!chiofv -T30 -v1,-1,5,5 -v.1,.2,.1,.1!.) An electron-acoustic
+mode becomes undamped or even growing if there is sufficient offset
+between the hot and cold components as to create a local minimum in
+the electron distribution.
+
+
+The equivalent effect can be better obtained by setting the ion to
+electron mass ratio to one and treating the electron species as the
+hot electron component and the ion species as the cold electron
+species. The code runs quicker and chooses more convenient velocity
+ranges. (For example \verb!chiofv -v1.,1.,.05,.05 -r1!.)
+
+\begin{figure}[htp]
+  \centering
+  \includegraphics[width=.7\hsize]{eamode}
+  \caption{Electron-acoustic mode modelled by putting the ion mass
+    equal to the electron mass. And specifying low ion temperature
+    shifted Maxwellian. }
+  \label{fig:eamode}
+\end{figure}
 
 \section{Group Velocity}
 
