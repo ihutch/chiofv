@@ -4,9 +4,9 @@ endif
 
 # The fno-globals (g77 only) flag is necessary to prevent errors because
 # of different precision of workspace types in different calls.
-G77flags=-O3
+G77flags=-O3 -fallow-argument-mismatch
 ifeq  ("$(G77)","g77")     
-  G77flags=-O3 -fno-globals -Wno-globals
+  G77flags=-O3 -fno-globals -Wno-globals -fallow-argument-mismatch
 endif
 # But the test program doesn't compile anyway because trim is not an
 # intrinsic in g77. Gfortran works.

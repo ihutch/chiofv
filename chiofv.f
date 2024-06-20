@@ -17,13 +17,14 @@ c Number of Im(vp) points: nim.
 c Input to the analysis routines on nv-mesh distrib, velocity, f^prime.
       real f(0:nv+2),v(0:nv+2),ww(0:nv+2)
 c Intermediate analysis output on npts mesh
-      real vp(npts),fv(npts),fvex(npts)
+      real vp(npts),fv(npts),fvex(npts),fvcomb(npts)
 c ,fvex(npts)
 c Final chi(vp) for complex grid.
       real cvreal(npts,-nimax:nimax),cvimag(npts,-nimax:nimax)
       real ceimag(npts,-nimax:nimax)
 c Contouring work array:
       character cworka(npts,-nimax:nimax)
+      character ilb
 c The velocity step and start.
       real dv,v0,v1
       real Te
@@ -40,16 +41,20 @@ c Parameters; density, velocity shift, vtperp, vtparallel.
       external cvint,chihat
       integer nim,nmm,nvin
       logical laspect,lcolor,lextra,lgrowth,lcoptic,ltwotone,lthresh
+      logical lcombplot,lelectrons
       real vpimax,vpi(-nimax:nimax)
       character*50 cfilename
 
       data nim/nimax/nmm/nmmax/laspect/.false./lcolor/.true./
       data lextra/.false./lgrowth/.true./ltwotone/.true./
+      data lcombplot/.false./lelectrons/.true./
       data vpimax/.4/vpi/nim2*0/
+      common/ilabel/ilb
 
 c Default: Plot to screen
       call pfset(3)
       call dcharsize(.02)
+      ilb='i'
       fflat=0.
 c Silence warnings.
       cworka(1,1)=char(0)
@@ -64,8 +69,8 @@ c Default gaussian data:
       theta=0.
       Te=1.
       rmitome=1836
-      vdmin=0.
-      vdmax=0.
+      vdmin=0.01
+      vdmax=0.01
       vw=vwfac*sqrt(max(gpar(3,1),gpar(4,1)))
       vrgfac=1.
 c Default electron landau damping weight is what a maxwellian of
@@ -83,24 +88,37 @@ c Parse command line for changes to defaults
       call parsecmdline(gpar,npar,ngmax,ng,vdmin,vdmax,vw,Te,theta
      $     ,vwfac,vpimax,nim,nmm,nimax,smfac,laspect,lcolor,eldweight
      $     ,vflat,wflat,fflat,lextra,amp,nw,lgrowth,lcoptic,cfilename
-     $     ,ltwotone,vrgfac,lthresh,rmitome)
+     $     ,ltwotone,vrgfac,lthresh,rmitome,omegac,lcombplot)
 c---------------------------------------------------------------
       if(.not.lcoptic)then
 c Construct the test distribution function as a sum of Gaussians.
-         vw=vwfac*sqrt(max(gpar(3,1),gpar(4,1)))
-         dv=(vdmax-vdmin+2.*vw)/nv
-         v0=vdmin-vw
 c Scale to sound-speed units assuming inputs relative to Ti=1:
-         v0=v0/sqrt(Te)
-         dv=dv/sqrt(Te)
+         if(vdmax.eq.0.01)vdmax=-100.
+         if(vdmin.eq.0.01)vdmin=100.
+         if(Te.eq.99.)then
+            Te=1.
+            lelectrons=.false.
+            ltwotone=.false.
+            lcombplot=.true.
+            ilb='e'
+ ! Avoid label clash.
+            vpimax=(real(int(vpimax*10.))+.5)/10.
+         endif
          do i=1,ng
+            ct=cos(theta)
             gpar(2,i)=gpar(2,i)/sqrt(Te)
             gpar(3,i)=gpar(3,i)/(Te)
             gpar(4,i)=gpar(4,i)/(Te)
+            if(gpar(2,i)*ct.gt.vdmax)vdmax=gpar(2,i)*ct
+            if(gpar(2,i)*ct.lt.vdmin)vdmin=gpar(2,i)*ct
          enddo
-c
-         pne=0.
+         vw=vwfac*sqrt(max(gpar(3,1),gpar(4,1)))
+         dv=(vdmax-vdmin+2.*vw)/nv
+         v0=vdmin-vw
+         write(*,*)'vdmin,vdmax',vdmin,vdmax
+
 c Calculate total ion density
+         pne=0.
          do i=1,ng
             pne=pne+gpar(1,i)
          enddo
@@ -146,10 +164,15 @@ c Set the end of the distribution function to zero.
          do i=nvin+1,nv+2
             f(i)=0.
          enddo
-         do i=0,nv+2
-            v(i)=(v0+i*dv)
-         enddo
+         vavei=0
+         fwt=0
       endif
+      do i=0,nv+2
+         v(i)=(v0+i*dv)
+         vavei=vavei+f(i)*v(i)
+         fwt=fwt+f(i)
+      enddo
+      vavei=vavei/fwt
 c Increment Smoothing of analytic continuation based on ranges.
       smfac=smfac+ 10.*(npts/(3.*nv))*dv/vpimax
 
@@ -167,6 +190,13 @@ c Perhaps add noise?
 c Perhaps smooth:
 c      write(*,*)'nw',nw
       if(nw.gt.0)call trismooth(nv-3,nw,f(3),ww,f(3))
+c-----------------------------------------------------------------
+c Prevent using twotone plot of chi_i if ion shift is large
+      vbig=10.
+      if(ltwotone.and.(abs(v(0)).gt.vbig.or.abs(v(nv)).gt.vbig))then
+         write(*,*)'WARNING: LARGE SHIFT. ltwotone set to false'
+         ltwotone=.false.
+      endif
 c-----------------------------------------------------------------
 c Calculate the chi along just the real axis for thresholds
       if(lthresh)then
@@ -201,16 +231,17 @@ c Calculate chi-ion from it.
       call chiion(v0,dv,f,nv,   fv,vp,npts,fmax
      $     ,nimax,nim,nmm,vpi,vpimax,smfac,cvreal,cvimag)
 c Get chi electron and add on real part, and imag for original plot.
+      vefactor=1./sqrt(2.*rmitome)
+      ct=cos(theta)
+      if(ct.gt..01)then
+         vefactor=vefactor/ct
+      else
+         write(*,*)'Dangerously low cos theta',ct,theta
+         stop
+      endif
       do j=1,npts
          do k=nmm,nim
-            vefactor=1./sqrt(2.*rmitome)
-            ct=cos(theta)
-            if(ct.gt..01)then
-               vefactor=vefactor/ct
-            else
-               write(*,*)'Dangerously low cos theta',ct,theta
-               stop
-            endif
+            if(lelectrons)then
             vpec=cmplx(vp(j),vpi(k))*vefactor
             chie=chihat(vpec)
             if(.not.ltwotone)then
@@ -218,6 +249,7 @@ c Get chi electron and add on real part, and imag for original plot.
                cvreal(j,k)=cvreal(j,k)+real(chie)
             endif
             ceimag(j,k)=imag(chie)
+            endif
          enddo
       enddo
       if(.false.)then !Obsolete but saving for theta tests.
@@ -236,25 +268,66 @@ c         call vertslice(vpi(-nim),npts,nim, cvreal(1,-nim))
 c Contour the susceptibility for stability analysis
       call multiframe(2,1,0)
       call ticnumset(7)
-      vrgfac=.6
       koff=int(min(max(1.-vrgfac,0.)*npts/2.,npts-1.))
       nrmin=1+koff
       nrmax=npts-koff
 
-      call plotfofv(vp(nrmin),fv(nrmin),nrmax-nrmin+1,fmax)
-      if(.true.)then
 c Plot the electron distribution function effective shape.
-         vte2=2.*rmitome
+      vte2=2.*rmitome
+      fvexmax=-1.e-6
+      if(lcombplot)then            ! Combined plot
          do i=1,npts
-            fvex(i)=rmitome/sqrt(3.141593*vte2)
-     $           *(exp(-vp(i)**2/vte2)-1.)
+            if(lelectrons)then
+               fvex(i)=rmitome/sqrt(3.141593*vte2)
+     $              *(exp(-(vp(i)/ct)**2/vte2))
+            else
+               fvex(i)=0.
+            endif
+            fvcomb(i)=fv(i)+fvex(i)
          enddo
+         call minmax(fvcomb(nrmin),nrmax-nrmin+1,fvmin,fvmax)
+         call pltinit(vp(nrmin),vp(nrmax),fvmin,fvmax)
+         call axis
+         if(.not.lelectrons)then
+            call axlabels('','f!de!d')
+         else
+            call axlabels('','f!di!d+f!de!d(m!di!d/m!de!d)')
+         endif
+         if(lelectrons)then
+            call dashset(1)
+            call color(3)
+            call legendline(.02,.95,0,' f!de!d(m!di!d/m!de!d)')
+            call polyline(vp(nrmin),fvex(nrmin),nrmax-nrmin+1)
+            call dashset(0)
+            call color(15)
+         endif
+         call polyline(vp(nrmin),fvcomb(nrmin),nrmax-nrmin+1)
+      else ! Older plot options
+         call plotfofv(vp(nrmin),fv(nrmin),nrmax-nrmin+1,fmax)
          call dashset(2)
          call color(3)
+         ff=-fmax
+         do i=1,npts
+            fvex(i)=rmitome/sqrt(3.141593*vte2)
+     $           *(exp(-(vp(i)/ct)**2/vte2)-1.)+fmax
+            if(fvex(i).gt.fvexmax)fvexmax=fvex(i)
+         enddo
+         if(fvex(nrmin).lt.ff.or.fvex(nrmax).lt.ff.or.fvexmax.lt.0)
+     $        then 
+!           Donot use suppressed zero
+            write(*,*)fvex(1),fvex(npts),ff
+            do i=1,npts
+               fvex(i)=fmax*exp(-(vp(i)/ct)**2/vte2)
+            enddo
+            call legendline(.5,.95,0,
+     $           ' (f!dimax!d/f!demax!d).f!de!d(v)')
+         else
+            call legendline(.5,.95,0,
+     $           ' (f!de!d(v)-f!de!d(0))m!di!d/m!de!d+f!dimax!d')
+         endif
          call polyline(vp(nrmin),fvex(nrmin),nrmax-nrmin+1)
-         call legendline(.1,.1,0,' (f!de!d(v)-f!de!d(0))m!di!d/m!de!d')
-         call color(15)
          call dashset(0)
+         call color(15)
       endif
       call chicontour(vp,vpi(nmm),npts,nrmin,nrmax,nim,nmm,cvreal(1,nmm)
      $     ,cvimag(1,nmm),ceimag(1,nmm),cworka,laspect,lcolor,ltwotone)
@@ -262,8 +335,8 @@ c Plot the electron distribution function effective shape.
 c Make the cvreal the total chi if it is not already (for acpplot).
       if(ltwotone)cvreal=cvreal+1.
 c Calculate parameters along contours and plot:
-      if(lgrowth)call acpplot(vp,vpi(nmm),npts,nim,nmm,cvreal(1,nmm)
-     $     ,cvimag(1,nmm),cworka,laspect,lcolor)
+      if(lgrowth)call acpplot(vp,vpi(nmm),vavei,npts,nim,nmm,cvreal(1
+     $     ,nmm),cvimag(1,nmm),cworka,laspect,lcolor)
       call exit(0)
  101  write(*,*)'Could not open coptic file',cfilename
       call exit(1)
@@ -353,7 +426,8 @@ c Integral (which is chi.(k\lambda_{De})^2
 c--------------------
 c Also get chi for negative imaginary part.
          do k=-1,nmm,-1
-            vpi(k)=vpimax*k/abs(nmm)
+!            vpi(k)=vpimax*k/abs(nmm)  ! superceded with
+            vpi(k)=vpimax*k/abs(nim)
 c Complex v_p.
             vpc=cmplx(vp(j),vpi(k))
 c Integral (which is chi.(k\lambda_{De})^2 plus the electron terms.
@@ -532,7 +606,8 @@ c oblique propagation. The above does not add on real part of i vpc.)
 c--------------------
 c Also get chi for negative imaginary part.
          do k=-1,nmm,-1
-            vpi(k)=vpimax*k/abs(nmm)
+!            vpi(k)=vpimax*k/abs(nmm)   ! superceded
+            vpi(k)=vpimax*k/abs(nim)
 c Complex v_p.
             vpc=cmplx(vp(j),vpi(k))
 c Integral (which is chi.(k\lambda_{De})^2 plus the electron terms.
@@ -790,11 +865,11 @@ c Argand diagram plot.
       call axlabels('Real','Imaginary')
       call winset(.true.)
 c Set the space between labels to .05 normal units and line drawing off.
-      call labeline(.05,0.,0,'',-99)
+      call labeline([.05],[0.],0,'',-99)
       call labeline(pv,fvp,npts,'>',1) 
-      call labeline(.005,0.,0,'',-99)
+      call labeline([.005],[0.],0,'',-99)
       call labeline(pv,fvp,npts,'"',1)
-      call labeline(0.,0.,0,'',-99)
+      call labeline([0.],[0.],0,'',-99)
 c Draw axes through origin
       call vecw(-Te,0.,0)
       call vecw(Te,0.,1)
@@ -811,9 +886,10 @@ c laspect if true says plot conserving aspect ratio.
       integer npts,nim,nmm,nrmin,nrmax
       real vp(npts),vpi(nmm:nim),cvreal(npts,nmm:nim),cvimag(npts,
      $     nmm:nim),ceimag(npts,nmm:nim)
-      character cworka(npts,nmm:nim)
+      character cworka(npts,nmm:nim),ilb
       logical laspect,lcolor
       logical ltwotone
+      commone/ilabel/ilb
 
       include 'acpathcom.f'
 
@@ -899,8 +975,8 @@ c Turn on path documentation.
          iacpsw=0
          call color(15)
       else
-         call axlabels('!AR!@(v!dp!d) /(T!de!d/m!di!d)!u1/2!u',
-     $        '  !AI!@(v!dp!d) /(T!de!d/m!di!d)!u1/2!u')
+         call axlabels('!AR!@(v!dp!d) /(T!de!d/m!d'//ilb//'!d)!u1/2!u',
+     $        '  !AI!@(v!dp!d) /(T!de!d/m!d'//ilb//'!d)!u1/2!u')
          call legendline(.6,.9,258,'(k!al!@!dDe!d)!u2!u!Ax!@ contours')
       endif
       call legendline(.77,.75,0,'imag')
@@ -914,8 +990,9 @@ c*******************************************************************
       subroutine plotfofv(vp,fv,npts,fmax)
       integer npts
       real vp(npts),fv(npts),fmax
-      yt=1.1*fmax
-      yb=-0.18*yt
+      yt=1.15*fmax
+      yb=-0.06*yt
+!      yb=-0.18*yt
       call pltinit(vp(1),vp(npts),yb,yt)
       call axptset(0.,abs(yb)/(yt-yb))
       call axis()
@@ -924,8 +1001,8 @@ c*******************************************************************
       call axlabels('','f(v)')
       end
 c********************************************************************
-c Calculate the result of the path/contour following.
-      subroutine acpplot(vp,vpi,npts,nim,nmm,cvreal,cvimag,cworka
+c Calculate and plot the result of the path/contour following.
+      subroutine acpplot(vp,vpi,vavei,npts,nim,nmm,cvreal,cvimag,cworka
      $     ,laspect,lcolor)
       integer npts,nim,nmm
       real vp(npts),vpi(nmm:nim),cvreal(npts,nmm:nim),cvimag(npts,
@@ -944,34 +1021,21 @@ c the end of the last contour.
       real curk(iacpmax),curfr(iacpmax),curfi(iacpmax)
       character*20 label
 
-      wimfac=.1
-      ymin=-1.5
-      ymax=2.
-      xmax=3.2
-      xmin=0.
-      call pltinit(xmin,xmax,ymin,ymax)
-      call axis()
-      call axlabels('k!Al!@!dD!d','!AR!@(!Aw!@)/!Aw!@!dpi!d')
-      call axptset(1.,0.)
-      call ticrev()
-      call altyaxis(wimfac,wimfac)
-      call axlabels('','!AI!@(!Aw!@)/!Aw!@!dpi!d')
-      call ticrev()
-      call axptset(0.,0.)
-      call winset(.true.)
-      call vecw(0.,0.,0)
-      call vecw(5.,0.,1)
-      call legendline(.02,.95,0,'!AR!@(!aw!@)')
-      call dashset(2)
-      call legendline(.7,.95,0,'!AI!@(!Aw!@)')
-      call dashset(0)
+      iplotinit=0
 c Do over contour (segments)
       curfimx=-1.e6
       ncur=0
+      xmax=3.2
+      xmin=0.
+      wimfac=1.
       do i=1,iacpcp-1
          icur=0
          id=0
          vpimx=-1.e6
+         cfimin=1.e6
+         cfimax=-1.e6
+         cfrmin=1.e6
+         cfrmax=-1.e6
          do j=1,iacpcon(i+1)-iacpcon(i)
 c Convert x,y values to fractional indexes then interpolate for chi
             xf=(1.+(xacp(iacpcon(i)+j)-vp(1))/(vp(npts)-vp(1))*(npts-1))
@@ -987,16 +1051,24 @@ c Add point to curve
 c Real part of this phase velocity
 c               vprm=(vp(1) +(xacp(iacpcon(i)+j)-1)*(vp(npts)-vp(1))
 c     $              /(npts-1))
-               vprm=xacp(iacpcon(i)+j)
+c               vprm=xacp(iacpcon(i)+j) ! Old v relative to electrons
+               vprm=xacp(iacpcon(i)+j)-vavei  ! relative to vavei
 c Hence real part of frequency k.v_p:
                curfr(icur)=curk(icur)*vprm
 c Imaginary part of phase velocity
                vpim=yacp(iacpcon(i)+j)
-c Imaginary part of frequency divided by scaling factor.
-               curfi(icur)=curk(icur)*vpim/wimfac
+c Imaginary part of frequency, not now divided by scaling factor.
+               curfi(icur)=curk(icur)*vpim
+!       write(*,'(i5,5f10.4)')icur,curk(icur),curfi(icur),vprm,vpim
+               if(curk(icur).lt.xmax)then ! Adust imag limits
+                  if(curfi(icur).gt.cfimax)cfimax=curfi(icur)
+                  if(curfi(icur).lt.cfimin)cfimin=curfi(icur)
+                  if(curfr(icur).gt.cfrmax)cfrmax=curfr(icur)
+                  if(curfr(icur).lt.cfrmin)cfrmin=curfr(icur)
+!       write(*,*)cfimin,cfimax,cfrmin,cfrmax
+               endif
                if(vpim.gt.vpimx)vpimx=vpim
-c This is scaled wrong because of wimfac.
-               if(curfi(icur).gt.curfimx)curfimx=curfi(icur)*wimfac
+               if(curfi(icur).gt.curfimx)curfimx=curfi(icur)
 c Decide the position of the line's label:
                xpos=xmax*(.6-.05*i)
                if(curk(icur).lt.xpos .and. id.eq.0)id=icur
@@ -1006,7 +1078,38 @@ c     $              ,curfi(icur),vprm,vpim
             endif
          enddo
 c Segment completed
-         if(id.gt.0.and.icur.gt.1 .and. vpimx.gt.-0.05)then
+!         write(*,*)id,icur,vpimx,cfimin,cfimax
+!         if(id.gt.0.and.icur.gt.1 .and. vpimx.gt.-0.05)then
+         if(id.gt.0.and.icur.gt.1)then
+            if(iplotinit.eq.0)then !Initialize plot
+!         write(*,'(10f8.3)')(curfr(k),k=1,icur-1)
+            ymax=cfimax
+            ymin=cfimin
+            wimfac=(cfimax-cfimin)/(cfrmax-cfrmin)
+            wimfaclog=nint(log10(wimfac))
+            wimfacl5=wimfaclog-.5
+            wimfac=10.**(min(wimfaclog,wimfacl5))
+!            write(*,*)'wimfac',wimfac
+            ymin=min(-.2,-max(abs(cfimin),abs(cfimax)))
+            ymax=max(.2,max(abs(cfimin),abs(cfimax)))
+            call pltinit(xmin,xmax,ymin,ymax)
+            call axis()
+            call axlabels('k!Al!@!dD!d','!Aw!@/!Aw!@!dpi!d')
+            call axptset(1.,0.)
+            call ticrev()
+            call altyaxis(1./wimfac,1./wimfac)
+            call axlabels('','!AI!@(!Aw!@)/!Aw!@!dpi!d')
+            call ticrev()
+            call axptset(0.,0.)
+            call winset(.true.)
+            call vecw(0.,0.,0)
+            call vecw(5.,0.,1)
+            call legendline(.63,.95,0,'!AR!@(!aw!@)-k!p!o_!o!qv!di!d')
+            call dashset(2)
+            call legendline(.02,.95,0,'!AI!@(!Aw!@)')
+            call dashset(0)
+            iplotinit=1
+            endif
             ncur=ncur+1
 c There is a curve to plot. Plot it.
             call dashset(0)
@@ -1014,8 +1117,9 @@ c There is a curve to plot. Plot it.
             call iwrite(ncur,iwdth,label)
 c            call labeline(curk,curfr,icur,label,10)
 c            id=0.7*icur
-            call polyline(curk,curfr,icur)
-            call jdrwstr(wx2nx(curk(id)),wy2ny(curfr(id)),label,0.)
+            call polyline(curk,curfr*wimfac,icur)
+            call jdrwstr(wx2nx(curk(id))+0.02,wy2ny(curfr(id)*wimfac)
+     $           ,label,0.)
             call dashset(2)
             call polyline(curk,curfi,icur)
             call jdrwstr(wx2nx(curk(id)),wy2ny(curfi(id)),label,0.)
@@ -1066,11 +1170,12 @@ c******************************************************************
       subroutine parsecmdline(gpar,npar,ngmax,ng,vdmin,vdmax,vw,Te,theta
      $     ,vwfac,vpimax,nim,nmm,nimax,smfac,laspect,lcolor,eldweight
      $     ,vflat,wflat,fflat,lextra,amp,nw,lgrowth,lcoptic,cfilename
-     $     ,ltwotone,vrgfac,lthresh,rmitome)
+     $     ,ltwotone,vrgfac,lthresh,rmitome,omegac,lcombplot)
       integer npar,ngmax
       real gpar(npar,ngmax)
       real vdmin,vdmax,vw,Te,theta,vwfac,amp
       logical laspect,lcolor,lextra,lgrowth,lcoptic,ltwotone,lthresh
+      logical lcombplot
       character*50 cfilename
 
       character*50 argument
@@ -1084,10 +1189,10 @@ c******************************************************************
 c Deal with arguments.
       do ia=1,iargc()
          call getarg(ia,argument)
-c Read the input file.
 c         write(*,*)argument(1:10)
          if(argument(1:1).ne.'-')then
             if(.not.lcoptic)then
+c        Read the input file.
                open(12,file=argument,form='formatted',status='old',err
      $              =101)
                read(12,*,end=102)theta,Te
@@ -1116,7 +1221,7 @@ c         write(*,*)argument(1:10)
                   if(vwhere.gt.vw)vw=vwhere
                enddo
             else
-c File name of coptic data.
+c          File name of coptic data.
                cfilename=argument
             endif
          else
@@ -1130,25 +1235,32 @@ c Switch arguments.
             if(argument(1:2).eq.'-x')read(argument(3:),*,err=103)vrgfac
             if(argument(1:2).eq.'-p')read(argument(3:),*,err=103)nw
             if(argument(1:2).eq.'-T')read(argument(3:),*,err=103)Te
+            if(argument(1:2).eq.'-O')read(argument(3:),*,err=103)omegac
+            if(argument(1:6).eq.'-theta')then 
+               read(argument(7:),*,err =103)theta  !degrees
+               theta=3.1415926/180.*theta          !radians
+            elseif(argument(1:2).eq.'-t')then
+               ltwotone=.not.ltwotone
+            endif
             if(argument(1:2).eq.'-r')read(argument(3:),*,err=103)rmitome
             if(argument(1:2).eq.'-v')then
                if(lgset)ng=ng+1
                read(argument(3:),*,err=103,end=105)(gpar(k,ng),k=1,4)
-               if(gpar(2,ng).gt.vdmax)vdmax=gpar(2,ng)
-               if(gpar(2,ng).lt.vdmin)vdmin=gpar(2,ng)
                lgset=.true.
-               endif
+            endif
+            if(argument(1:3).eq.'-Vi')read(argument(4:),*,err=103)vdmin
+            if(argument(1:3).eq.'-Va')read(argument(4:),*,err=103)vdmax
             if(argument(1:2).eq.'-h')goto 104
             if(argument(1:2).eq.'-?')goto 104
             if(argument(1:2).eq.'-a')laspect=.not.laspect
             if(argument(1:2).eq.'-c')lcolor=.not.lcolor
             if(argument(1:2).eq.'-b')lextra=.not.lextra
             if(argument(1:2).eq.'-g')lgrowth=.not.lgrowth
-            if(argument(1:2).eq.'-t')ltwotone=.not.ltwotone
             if(argument(1:2).eq.'-S')lthresh=.not.lthresh
             if(argument(1:2).eq.'-e')read(argument(3:),*,err=103)eld
             if(argument(1:2).eq.'-d')call pfset(-3)
             if(argument(1:7).eq.'-COPTIC')lcoptic=.not.lcoptic
+            if(argument(1:3).eq.'-CP')lcombplot=.not.lcombplot
             if(argument(1:2).eq.'-f')then
                if(fflat.eq.0.)then
                   fflat=1.
@@ -1169,7 +1281,7 @@ c               write(*,*)fflat,vflat,wflat
 
       eldweight=eldweight*eld
       if(iargc().le.0)then
-         write(*,*)'No input file specified. Using defaults'
+         write(*,*)'No input file or switches specified. Using defaults'
       endif
       if(nim.gt.nimax)nim=nimax
       if(abs(nmm).gt.nimax)nmm=nimax
@@ -1180,34 +1292,38 @@ c               write(*,*)fflat,vflat,wflat
  101  write(*,*)'Failed to open file: ',argument
  103  write(*,*)'Error parsing argument: ',argument
  104  write(*,*)'Usage: chiofv [switches] [filename]'
-      write(*,'(2a,2i4,a)')' -n -m imag mesh numbers'
-     $     ,' +ve,-ve [',nim,nmm,']'
-      write(*,'(a,f7.4,a)')' -i max imaginary vp        [',vpimax,']'
-      write(*,'(a,f7.4,a)')' -u uncertainty (noise)     [',amp,']'
-      write(*,'(a,f7.4,a)')' -T Te                      [',Te,']'
+      write(*,'(a,f7.4,a,f7.4,a)')' -theta k-angle to v,B (deg)[',theta,
+     $     ']rad;  -O omegac_e/omega_pe [',omegac,']'
+      write(*,'(a,f7.3,a)')' -T Te                      [',Te,']'
       write(*,'(a,f7.1,a)')' -r mi/me                   [',rmitome,']'
+      write(*,'(a,f7.4,a)')' -i max imaginary vp        [',vpimax,']'
+      write(*,'(2a,2i4,a)')' -n -m imag mesh numbers  '
+     $     ,'  [',nim,nmm,'] +ve,-ve. Negative range=n/m*vpimax'
+      write(*,'(a,f7.4,a)')' -u uncertainty (noise)     [',amp,']'
+      write(*,'(a,f7.2,a,f7.2,a)')' -Va maximum vreal of plot  [',
+     $     vdmax,'] -Vi minimum vreal of plot  [',vdmin,']'
       write(*,'(a,f7.4,a)')' -x vrange fraction plot    [',vrgfac,']'
-      write(*,*)'-s smoothing factor [1]   -w integration width factor'
-     $     ,' [4]'
+      write(*,'(a,f7.3,a,f7.3,a)')' -s smoothing factor        [',
+     $     smfac,'] -w integration width factor[',vwfac,']'
       write(*,*)'-a toggle aspect ratio      [',laspect
      $     ,'] -c toggle coloring          [',lcolor,']'
       write(*,*)'-b toggle extra detail plots[',laspect,']',
      $     ' -g toggle growth rate plot  [',lgrowth,']'
       write(*,*)'-t toggle two tone plot     [',ltwotone,']',
      $     ' -S stability threshold      [',lthresh,']'
+      write(*,*)'-CP toggle combined f plot  [',ltwotone,']'
       write(*,*)'-d disable display of plots'
       write(*,*)'-e ELD weight factor'
-      write(*,*)'-p integer width of smoothing triangle box'
-      write(*,'(a,4f7.3,a)')' -v<n>,<v>,<Tpp>,<Tpl> Specify Gaussian ['
+      write(*,*)'-p integer width of smoothing triangle box',nw
+      write(*,'(a,4f7.2,a)')' -v<n>,<v>,<Tpp>,<Tpl> Specify Gaussian ['
      $     ,(gpar(i,ng),i=1,4),']'
       write(*,*)'   First -v overwrites default, succeeding adds new'
       write(*,*)'-f flatspot: -fv center-velocity -fw width'
      $     ,' -ff slope-factor'
-      write(*,*)'-COPTIC toggle external distribution reading lcoptic'
+      write(*,*)'-COPTIC : toggle external distribution reading lcoptic'
       write(*,*)'   subsequent filename refers to external data.'
       call exit
- 102  write(*,*)'File ended prematurely',ng,k
-      
+ 102  write(*,*)'File ended prematurely',ng,k    
       end
 
 c*******************************************************************

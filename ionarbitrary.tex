@@ -14,13 +14,14 @@
 \maketitle
 
 \begin{abstract}
-A method of solving numerically the dispersion relation and hence
-investigating stability of arbitrary ion distributions to longitudinal
-electrostatic oscillations in the ion-acoustic range of velocities is described.
+A method is described to solve numerically the dispersion relation and hence
+investigate stability of arbitrary ion distributions to longitudinal
+electrostatic oscillations in the ion-acoustic range of velocities.
 Several subtleties arise that are bypassed in the historic analytic
 treatments. A dimensionless formulation is implemented that gives
 robust graphical interpretation and allows direct solution and
-intuitive display.
+intuitive display. It is applied to a range of different electrostatic
+waves and instabilities. 
 \end{abstract}
 
 \section{Background Theory}
@@ -53,7 +54,7 @@ effective temperature $T_0$. In terms of this temperature, the Debye
 length is $\lambda_{D} = \sqrt{\epsilon_0 T_0/e^2 n_e}$ and the sound
 speed is $c_{s} = \sqrt{T_0/m_i}$. At this stage one can think of these as
 corresponding to electron temperature $T_e=T_0$ and ion mass
-$m_i$. However, we will later consider $T_e$ to be variable,
+$m_i$. However, we will later sometimes consider $T_e$ to be variable,
 independent of $T_0$. In terms of these energy scaled parameters we
 can write
 \begin{equation}\label{ionint}
@@ -123,7 +124,7 @@ are prescribed in arbitrary numerical terms.
 In principle the electron distribution might be arbitrary as well as
 the ion distribution. However, the generally very different velocity
 scale of the electron distribution means that for the exploration of
-waves in the ion-acoustic frequency range the electrons' response is
+waves in the ion-acoustic frequency range, the electrons' response is
 usually defined by the Debye length and the low velocity part of their
 distribution. Performing detailed numerical integrals over the
 electron distribution is then neither accurate nor appropriate. Therefore
@@ -142,39 +143,51 @@ $T_e$, not the scaling temperature $T_0$ (if it is different). This
 expression is an embodiment of the plasma dispersion function. In
 terms of standard functions it can be considered the derivative of
 $(-i\sqrt{\pi}/2)\exp(-x^2)\mbox{erfc}(-ix)$. In the ion-acoustic
-regime $\chi_e$ is well approximated by an expansion that takes $v_p$
-to be small compared with $\sqrt{2T_e/m_e}$, which yields
+regime with $\bar v_i\simeq \bar v_e$, $\chi_e$ is usually well approximated
+by an expansion that takes $v_p$ to be small compared with
+$\sqrt{2T_e/m_e}$, which yields
 \begin{equation}\label{chie}
    k^2\lambda_{D}^2 {T_e\over T_0} \chi_e=
 k^2\lambda_{De}^2 \chi_e \approx 1 + i \sqrt{\pi m_e\over 2 T_e}\; v_p\ .
 \end{equation}
 
 For frequencies well below the electron gyro-frequency and
-$k \rho_e \ll 1$ (where $\rho_e$ is the thermal gyro-radius) this
-one-dimensional expression can be readily extended to give the
-required longitudinal electron susceptibility for oblique propagation
-with respect to the magnetic field when the wave-vector has a
-component $k_\parallel$ along the magnetic field, simply by replacing
-the definition of the normalized phase speed $x$ with
-$x=\omega/k_\parallel\sqrt{2T_e/m_e}$ equivalent to replacing $v_p$ with
-$v_{p\parallel}(=\omega/k_\parallel)$. The $k^2$ factor multiplying
-$\chi_e$, which arises from the Laplacian in Poisson's equation,
-remains the total $k$. However, the expansion eq.\ (\ref{chie})
-becomes inappropriate for angles that enhance $v_{p\parallel}$ so much
-as to violate $|x|\ll 1$. Then a full numerical implementation of the
-Faddeeva function, $\exp(-x^2)\mbox{erfc}(-ix)$, in eq.\
-(\ref{chiefull}) must be used.
+correspondingly small $k \rho_e \ll 1$ (where $\rho_e$ is the thermal
+gyro-radius) the one-dimensional expressions can be readily extended
+to give the required longitudinal electron susceptibility for oblique
+propagation with respect to the magnetic field when the wave-vector
+has a component $k_\parallel$ along the magnetic field. Purely
+parallel electron motion replaces $f$ with parallel distribution
+$f_\parallel$, and replaces speed $v$ with $v_{\parallel}$ (and $v_p$
+with $v_{p\parallel}$) in equation (\ref{ionint}) or (\ref{chie}), and
+$x=\omega/k_\parallel\sqrt{2T_e/m_e}$ in (\ref{chiefull}). The $k^2$
+factor multiplying $\chi_e$, which arises from the Laplacian in
+Poisson's equation, remains the total $k$. {Algebraically, the
+  electron current along $B$ is
+  $j_\parallel = -(q^2i\omega/mk_\parallel^2)\int {df_\parallel\over
+    dv_\parallel}{ dv_\parallel\over(\omega/k_\parallel -
+    v_\parallel)} E_\parallel$ and the longitudinal components are
+  $j_k=(k_\parallel/k) j_\parallel$, $E_k=(k/k_\parallel)E_\parallel$.
+  Thus
+  $k^2\lambda_{De}^2\chi_{kk}= -\int {df_{e\parallel}\over
+    dv_\parallel}/(\omega/k_\parallel - v_\parallel) dv_\parallel$ is
+  the longitudinal electron susceptibility contribution.}  This
+approximation is appropriate for Lower Hybrid waves and
+instability. However, McMillan (2006) says that a term
+$(k_\perp/k)^2(\omega_{pe}/\Omega_e)^2$ should be added to the
+electron susceptibility to account for incomplete electron
+magnetization.
+
+
+Expansion eq.\ (\ref{chie}) becomes inappropriate for angles that
+enhance $v_{p\parallel}$ so much as to violate $|x|\ll 1$. Then a full
+numerical implementation of the Faddeeva function,
+$\exp(-x^2)\mbox{erfc}(-ix)$, in eq.\ (\ref{chiefull}) must be
+used. It is also required for large shifts between the electron and
+ion distributions.
 
 
 \iffalse
-Obliqueness of the wave vector with magnetized electrons therefore
-leads to an \emph{enhancement} of electron Landau damping by the
-factor $k/k_\parallel$ up until $v_{p\parallel}\sim
-v_{te}$. Naturally, this is a stabilizing factor; so (assuming the
-ions to be approximately unmagnetized) the most unstable waves driven
-by parallel ion distribution distortions are expected to have
-approximately $k\parallel B$.
-
 The imaginary part of eq.\ (\ref{chie}) represents electron Landau
 damping and arises from the contribution of the residue from the pole
 after a principal value evaluation of the integral.  This form applies
@@ -303,42 +316,45 @@ solution of the dispersion relation, using a contour plot in complex
 $v_p$ space of the value of $k^2\lambda^2\chi$, which is determined by
 the shape of the distribution function.
 
-\subsection{Ion Acoustic Waves}
+\subsection{Ion Acoustic Waves Displayed as Total $\chi$ Contours}
 
 One simple way to display the solution for a single electron temperature
 $T_e=T_0$ is shown in Fig.\ \ref{maxwellian}. 
 \begin{figure}[htp]
   \centering
   \includegraphics[width=0.7\hsize]{maxwellian}
-  \caption{Contours of full susceptibility for $T_e=10$, $T_i=1$.}
+  \caption{Contours of full susceptibility for $T_e=10$, $T_i=1$.  At
+    the intersection of the black contour with the green contours, the
+    wave vector $k$ is such that $k\lambda_{De}$ equals the square
+    root of minus the green contour's value.}
   \label{maxwellian}
 \end{figure}
 The velocity units are normalized to the cold ion sound speed
 $c_{s}=T_e/m_i$.  The upper panel shows the ion distribution, a simple
-Maxwellian. A green dashed line is added (barely visible here) below
-the $v$-axis, which shows the deviation of the electron distribution
-from its peak value $(f_e(v)-f_e(0))m_i/m_e$ scaled by the mass
-ratio. It shows that the electron distribution ($T_e=0$ here) hardly
-varies across the velocity range of the ion distribution. The lower
-panel plots contours of the full susceptibility in the form
-$(k\lambda_{De})^2\chi$ where $\chi=\chi_i+\chi_e$. The black contour
-is where the imaginary part is zero. The green contours are labelled
-with values of the real part. They are given only for negative
-values. In the gray shaded region the real part is positive and no
-solution of the dispersion relation exists.  Since the dispersion
-relation is $\chi=-1$, the solution for a particular value of
-$k\lambda_{De}$ occurs at the intersection of the black contour with
-the green contour corresponding to a value
-$\Re(k^2\lambda_{De}^2\chi)=-(k\lambda_{De})^2$.  All such
+Maxwellian. A green dashed line is added, which shows the deviation of
+the electron distribution from its peak value $(f_e(v)-f_e(0))m_i/m_e$
+scaled by the mass ratio. It shows that the electron distribution
+($T_e=10$ here) hardly varies across the velocity range of the ion
+distribution. The lower panel plots contours of the full
+susceptibility in the form $(k\lambda_{De})^2\chi$ where
+$\chi=\chi_i+\chi_e$. The black contour is where the imaginary part is
+zero. The green contours are labelled with values of the real
+part. They are given only for negative values. In the gray shaded
+region the real part is positive and no solution of the dispersion
+relation exists.  Since the dispersion relation is $\chi=-1$, the
+solution for a particular value of $k\lambda_{De}$ occurs at the
+intersection of the black contour with the green contour corresponding
+to a value $\Re(k^2\lambda_{De}^2\chi)=-(k\lambda_{De})^2$.  All such
 intersections in this case are below the real axis of $v_p$, showing
 that $\omega/k$ has negative imaginary part and the waves are damped
 ($k$ is real and $\omega$ has a negative imaginary part) in this
 case. We shall later encounter unstable cases where the black contour
-rises above the real $v_p$ axis in the unshaded region.  This display
-thus provides the entire dispersion relation for all real $k$,
-indicated by the contour value labels; in particular the zero contour
-is the long-wavelength ($k\to 0$) limit.
+rises above the real $v_p$ axis in the unshaded region.
 
+This display
+thus provides graphically the entire dispersion relation for all real
+$k$, in particular the zero green contour is the long-wavelength
+($k\to 0$) limit.
 \begin{figure}[htp]
   \centering
   \includegraphics[width=.5\hsize]{maxwelok}
@@ -360,10 +376,12 @@ positive phase velocity and $\Re(\omega)$ ($k$ is taken positive). By
 symmetry they both have exactly the same damping factor $-\Im(\omega)$
 which makes the two dashed lines plot exactly over one another.
 
-
-An alternative way to display the approximate result for a range of
-electron temperatures not necessarily equal to $T_0$ is the following.
-We recognize that the dispersion relation can be written
+\subsection{Alternative Two-Tone Plot Approximation}
+An alternative way to display an approximation for a range of electron
+temperatures not necessarily equal to $T_0$ is the following.  We
+recognize that when the phase velocity $v_p$ (relative to the center
+of the electron Maxwellian) is small, the electron susceptibility in
+the dispersion relation can be approximated as
 \begin{equation}
   \label{dispersion}
    k^2\lambda_D^2(\chi_i+1) = - k^2\lambda_D^2\chi_e
@@ -412,52 +430,133 @@ simple Maxwellian as before, choosing $T_0=10T_i$.
     $T_0=10T_i$.\label{maxwellion}}
 \end{figure}
 The light-gray shaded regions are those where
-$\Re(k^2\lambda_D\chi_i)$ is more positive than $-1$. Those are
+$\Re(k^2\lambda_D^2\chi_i)$ is more positive than $-1$. Those are
 regions where no solutions exist for $T_e=T_0$. For that electron
 temperature, the dispersion relation solutions lie (only) along those
 segments of the imaginary-part zero-contour that lie in unshaded
 regions. Those unshaded regions are actually identical to the unshaded
-regions of Fig.\ \ref{maxwellian}, even though the real contour values
-differ from $k^2\lambda_{D}^2 \chi$ by $-1$. Although the green and
-black contours are of $\chi_i$, the actual dispersion relation
-requires $\Im(\chi)=0$, using the full $\chi=\chi_i+\chi_e$. By
-plotting in addition the zero contour of $\Im(\chi)$ (for the case
-$T_e=T_0$): the blue line, one obtains the full solution (following
-the blue line and finding its intersections with the green) of the
-dispersion for that case. The black line is the $\Im(\chi)=0$ contour
-ignoring electron Landau damping, which is exact only when
-$T_e\to\infty$. So the difference between the black and blue contours
-indicates the degree of approximation involved in ignoring electron
-Landau damping for $T_0/T_e=1$. At any electron temperature between
-$T_0$ and $\infty$ the corresponding imaginary contour would lie between
-the blue and the black curves.  At any point along such curves, the
-real part of $k^2\lambda_{D}^2 \chi_i$ can be read from the green
-contours that intersect it. Knowing $k^2\lambda_{D}^2 \chi_i$ one can
-immediately deduce the value of $k$ from eq.\ (\ref{ksquared}).
+regions of Fig.\ \ref{maxwellian}, in so far as the approximation 
+$\Re(k^2\lambda_{De}^2\chi_e)=T_0/T_e$ holds. The real contour values differ
+from those in Fig.\ \ref{maxwellian} by $-1$. Although the green and black
+contours are of $\chi_i$, the actual dispersion relation requires
+$\Im(\chi)=0$, using the full $\chi=\chi_i+\chi_e$. By plotting in
+addition the zero contour of $\Im(\chi)$ (for the case $T_e=T_0$): the
+blue line, one obtains the full solution (following the blue line and
+finding its intersections with the green) of the dispersion for that
+case. The black line is the $\Im(\chi)=0$ contour ignoring electron
+Landau damping, which is exact only when $T_e\to\infty$. So the
+difference between the black and blue contours indicates the degree of
+approximation involved in ignoring electron Landau damping for
+$T_0/T_e=1$. At any electron temperature between $T_0$ and $\infty$
+the corresponding imaginary contour would lie between the blue and the
+black curves.  At any point along such curves, the real part of
+$k^2\lambda_{D}^2 \chi_i$ can be read from the green contours that
+intersect it. Knowing $k^2\lambda_{D}^2 \chi_i$ one can immediately
+deduce the value of $k$ from eq.\ (\ref{ksquared}).
+ The edge of the allowed
+solution region for a $T_e$ different from $T_0$ is at the contour
+where $\Re (k^2\lambda_{D}^2 \chi_i)=-T_0/T_e$. So the green contours
+can be considered universal for any $T_e$. For example, if
+$T_e=20T_i=2T_0$, then the $-0.5$ contour is the allowed solution
+boundary.
 
-Omission of electron Landau damping hardly affects the black contour in the
-unshaded region, but it raises it toward $v_{pi}=0$ further out in
-the light shaded region. The smallest $k$ solution for $T_e=T_0$ : the
-long wavelength solution, occurs at the boundary with the (light)
+Omission of electron Landau damping hardly affects the black contour
+in the unshaded region, but it raises it toward $v_{pi}=0$ further out
+in the light shaded region. The smallest $k$ solution for $T_e=T_0$ :
+the long wavelength solution, occurs at the boundary with the (light)
 shaded region where $\Re (k^2\lambda_{D}^2 \chi)= 0$ and
 $\Re (k^2\lambda_{D}^2 \chi_i)= -1$.  In Fig \ref{maxwellion}, that
 position is at $\Re (v_p)\approx\pm 1.15 c_{s}$ because $T_i/T_0=0.1$
 in this case, and the actual warm-ion acoustic speed for such waves is
-approximately $\sqrt{(T_e+3T_i)/m_i}$. The imaginary part of $v_p$ is
-everywhere negative along the solution curve (blue) in this plot,
-indicating that these waves are damped. The damping rapidly becomes
-stronger as one moves away from the shaded edge because the real part
-becomes large (and negative) implying large $k$, and thus large
-$\omega_i$ (because $\omega_i =kv_{pi}$). The edge of the allowed
-solution region for a $T_e$ different from $T_0$ is at the contour
-where $\Re (k^2\lambda_{D}^2 \chi_i)=-T_0/T_e$. So this contour plot
-can be considered universal for any $T_e$. For example, if
-$T_e=20T_i=2T_0$, then the $-0.5$ contour is the allowed solution
-boundary and the long wavelength root has $v_p$ just over $1.5$. Or
-again, if $T_e=5T_0$ the boundary is at the $-2.0$ contour.
+approximately $\sqrt{(T_e+3T_i)/m_i}$. If instead $T_e=2T_0$, the long
+wavelength root (contour $-0.5$) has $v_p$ just over $1.5$. Or again,
+if $T_e=0.5T_0$ the solution boundary is at the $-2.0$ contour.  The
+imaginary part of $v_p$ is everywhere negative along the solution
+curve (blue) in this plot, indicating that these waves are damped. The
+damping rapidly becomes stronger as one moves away from the shaded
+edge because the real part becomes large (and negative) implying large
+$k$, and thus large $\omega_i$ (because $\omega_i =kv_{pi}$).
 
-A different case is shown in Fig \ref{flattail}, where a relatively
+An important caveat for the alternative two-tone treatment is that the
+approximations employed are appropriate only for small phase velocity
+relative to electron thermal velocity. When $v_p/c_s\gtrsim
+\sqrt{m_i/m_e}/5$ it should not be used. 
+
+\subsection{Current-driven Instabilities}
+
+When both electrons and ions are Maxwellian but their central
+velocities differ, a current is present. Ignoring the fact that it
+will perturb the magnetic field, we can still examine electrostatic
+stability. We choose to express velocities relative to the mean
+electron velocity, but still in units of the ion acoustic speed. 
+
 \begin{figure}[htp]
+\center
+  \includegraphics[width=0.48\hsize]{ionacoustic1}\hskip-1em(a) 
+  \includegraphics[width=0.48\hsize]{ionacoustic2}\hskip-1em(b)
+  \includegraphics[width=0.48\hsize]{ionacoustic3}\hskip-1em(c)
+  \includegraphics[width=0.48\hsize]{ionacoustic4}\hskip-1em(d)
+  \caption{Ion acoustic instability for $T_i=1$, (a) $T_0=20$,
+    $v_i=-10\sqrt{T_i/m_i}$, (b) $T_0=10$, $v_i=-40\sqrt{T_i/m_i}$ (c)
+    $T_0=100$, $v_i=-470\sqrt{T_i/m_i}$ (d) $T_0=100$,
+    $v_i=-900\sqrt{T_i/m_i}$. In (b)-(d) the unapproximated electron
+    susceptibility is used; and $f_e$ scaled to the same height as
+    $f_i$ is plotted, showing the very slight positive $df_d/dv)$ and
+    how far out on the electron Maxwellian the plot is. Cases (c) and (d)
+    are effectively Buneman instabilities accounting for finite ion
+    temperature.  
+    \label{ionacoustic1}}
+\end{figure}
+\paragraph{Ion acoustic instability} can be driven by current that
+corresponds to quite moderate ion velocity shift when the temperature
+ratio $T_e/T_i$ is high enough. Fig.\ \ref{ionacoustic1}(a)
+illustrates a case with a moderate ion velocity shift
+$-10\sqrt{T_i/m_i}=-2.24\sqrt{T_e/m_i}$. The ratio $T_e/T_i=20$ makes
+ion Landau damping negligible and the black lines (omitting the
+imaginary $\chi_e$) are extremely close to the real axis away from the
+ion distribution region. But including $\Im(\chi_e)$ the positive
+slope of the electron distribution causes the blue line to rise above
+the real axis on the right of the ions: unstable growth. This is the
+current-driven ion acoustic instability. On the left damping occurs.
+Fig.\ \ref{ionacoustic1}(b) shows a much greater
+velocity shift, having larger $\Im(v_p)$ even with lower
+$T_e=T_0=10T_i$, but it is a qualitatively similar ion-acoustic wave. 
+Fig.\ \ref{ionacoustic1}(c) and (d), having $T_e=100T_i$ would be
+reasonably represented by a fluid ion treatment, and in fact
+correspond to \textbf{Buneman instabilities}. Buneman's original treatment
+used cold fluid ions. 
+
+\begin{figure}
+  \includegraphics[width=0.48\hsize]{ovk2}\hskip-1em(a)
+  \includegraphics[width=0.48\hsize]{ovk4}\hskip-1em(b) 
+  \caption{Dispersion curves (a) corresponding to Fig
+    \ref{ionacoustic1}(b) and (b) corresponding to Fig
+    \ref{ionacoustic1}(d). The real frequencies (solid lines)
+    displayed are in the frame of reference of the mean ion velocity
+    ($\Re(\omega)-k\bar v_i$). The curves labelled 2 are the unstable
+    roots with dashed (imaginary) curves rising above
+    zero.\label{ovk}}
+\end{figure}
+
+The main point of this comparison is to show that there is no
+qualitative distinction between ion-acoustic instability and Buneman
+instability. From the viewpoint of a Penrose analysis they both arise
+from the formation of a local minimum in the combined distribution
+$f_e+(m_e/m_i)f_i$. Or in other words from a positive slope of $f_e$
+at phase speeds where the real part of $\chi$ is negative, permitting
+a solution of the dispersion relation (with real $k$). As the velocity
+shift magnitude increases, ion acoustic and Buneman instabilities
+connect continuously.
+
+Fig.\ \ref{ovk} shows conventional dispersion curves of $\omega$
+versus $k$, expressed in the ion frame, for two of the cases of Fig.\
+\ref{ionacoustic1}. The large-shift Buneman regime (b) has faster
+instability peak growth rate by a factor of approximately 20.
+
+
+\subsection{Positive-slope $f_i$ tail}
+A different sort of ion distribution is shown in Fig \ref{flattail}, where a relatively
+\begin{figure}[ht]
   \center\includegraphics[width=0.8\hsize]{flattailion}\endcenter
   \caption{Contour Plot of ion susceptibility for an ion distribution with
     a long tail of slightly positive slope, showing unstable
@@ -465,18 +564,20 @@ A different case is shown in Fig \ref{flattail}, where a relatively
 \end{figure}
 long tail of slightly positive slope is added to the Maxwellian bulk
 (whose temperature is $T_0/30$). The tail induces an ion-acoustic
-(sometimes called ion-ion) instability. This is evidenced by the
-region where the $\Im(\chi_i)=0$ contour rises above the real $v_p$-axis,
-corresponding to wave growth. The unstable solutions actually exist
-only near the low-velocity end of the tail for $T_e=T_0$. In the
-higher-velocity range, although the contour is still at positive
-$v_{pi}$ it is in the light shaded $v_p$ region where the real part of
-$\chi$ is positive and the dispersion relation cannot be
-satisfied. This observation is an important corrective to any improper
-transference of intuition derived from \emph{electron} stability of
-Langmuir waves. Unstable Langmuir waves exist on an
-electron-distribution-tail throughout most of the region where its slope is
-positive. That is not the case for ion-ion instability. 
+instability (sometimes called ``ion-ion'' but not entirely
+appropriately in this case), but requires no current (i.e.\ electron
+shift) to do so. The instability is in the region where the
+$\Im(\chi_i)=0$ contour rises above the real $v_p$-axis, corresponding
+to wave growth. The unstable solutions actually exist only near the
+low-velocity end of the tail for $T_e=T_0$. In the higher-velocity
+range, although the contour is still at positive $v_{pi}$ it is in the
+light shaded $v_p$ region where the real part of $\chi$ is positive
+and the dispersion relation cannot be satisfied. This observation is
+an important corrective to any improper transference of intuition
+derived from \emph{electron} stability of Langmuir waves. Unstable
+Langmuir waves exist on an electron-distribution-tail throughout most
+of the region where its slope is positive. That is not the case for
+ion-acoustic instability.
 
 Actually a direct quantitative understanding of this difference can be
 derived from the figure. In the limit $T_e\to \infty$, the electrons
@@ -488,55 +589,62 @@ velocities appropriately, see section \ref{elecLang}). We see that
 then the solution region (outside the dark grey shading) extends
 almost (but actually not quite) to the upper end of the positive slope
 region. This is exactly the region of Langmuir wave instability for an
-electron distribution of this shape. However, as $T_e$ is lowered, the
-electron contribution to $\chi$ becomes significant, and causes the
-solution region to contract towards the lower velocity end of the
-tail. If $T_e$ becomes less than approximately $T_0/3$, the solution
-region (whose boundary is then on the $\sim-3$ contour) no longer
-contains any positive-$\Im(v_p)$ regions of the $\Im(\chi_i)=0$
-contour. The ion instability disappears.  The last phase velocity to
-remain unstable is where the $\Im(\chi)=0$ contour crosses the x-axis:
+electron distribution of this shape. So there is a precise analogy
+between the ion and electron distribution positive-slope Landau growth
+at $T_e\to\infty$. However, as $T_e$ is lowered, the electron
+contribution to $\chi$ becomes significant, and causes the solution
+region to contract towards the lower velocity end of the tail. If
+$T_e$ becomes less than approximately $T_0/3$, the solution region
+(whose boundary is then on the $\sim-3$ contour) no longer contains
+any positive-$\Im(v_p)$ regions of the $\Im(\chi_i)=0$ contour. The
+ion instability disappears.  The last phase velocity to remain
+unstable is where the $\Im(\chi)=0$ contour crosses the x-axis:
 $v_p\approx 0.5 c_s$. This suppression of ion-ion instability by
 lowering of $T_e$ is \emph{nothing to do with electron Landau
   damping}, which is still negligible, as evidenced by the equality of
-the black and blue curves in this vicinity. It is caused by the real part
-(not the imaginary part) of the electron susceptibility.
+the black and blue curves in this vicinity. It is caused by the real
+part (not the imaginary part) of the electron susceptibility.
 
 In the opposite direction to the tail, a relatively weakly damped
 acoustic branch exists. A third branch, which is strongly damped
 unless $T_e$ is very high, exists just beyond $2c_{s}$, and some other
 extremely heavily damped branches of little practical relevance also exist at
 $\Im(v_{p})<-0.3$. Those heavily damped branches are omitted from the
-$\omega(k)$ plot of Fig.\ \ref{fig:flattailok}.
+$\omega(k)$ dispersion plot of Fig.\ \ref{fig:flattailok}.
 \begin{figure}[htp]
   \centering
-  \includegraphics[width=0.6\hsize]{flattailok}
+  \includegraphics[width=0.5\hsize]{flattailok}
   \caption{Dispersion curves for the $T_e=T_0=30T_i$ case of Fig.\
     \ref{flattail}.}
   \label{fig:flattailok}
 \end{figure}
 The branch 2 is now unstable for $k\lambda_D\lesssim 1.4$.
 
+\subsection{Two shifted ion populations}
 \begin{figure}[htp]
   \center\includegraphics[width=.7\hsize]{twogaussLowTe}\endcenter
   \caption{Contour Plot of ion susceptibility for an ion distribution
     with two humps. $T_0$ is 3 times the temperature of the unshifted
-    hump. \label{twogausslowTe}}
+    hump. It can be called an ion-ion or ion-two-stream instability.\label{twogausslowTe}}
 \end{figure}
 Fig.\ \ref{twogausslowTe} shows an ion distribution with two
-overlapping humps.
-The reference temperature is taken as 3 times the temperature of the
-unshifted hump (the other hump has width corresponding to a
-temperature 0.6 times lower). When $T_e=T_0$, waves are only just
-unstable in the distribution minimum near $v_p=1.2$. Lower $T_e$ would
-not be unstable. Higher $T_e$ permits greater growth rate, again
-indicating the importance of $T_e$ in determining stability, but again
-not arising from electron Landau damping. For
-five times higher $T_e$ the maximum growth rate of the instability is greatly
-increased, yet the range of real part of the phase
-velocities that are unstable is extremely narrow, residing at the
-bottom of the valley between the humps, where electron Landau damping
-is unimportant. 
+overlapping humps.  The reference temperature is taken as 3 times the
+temperature of the unshifted hump (the other hump has width
+corresponding to a temperature 0.6 times lower). When $T_e=T_0$, waves
+are only just unstable in the distribution minimum near
+$v_p=1.2$. Lower $T_e$ would not be unstable. Higher $T_e$ permits
+greater growth rate, again indicating the importance of $T_e$ in
+determining stability, but again not arising from electron Landau
+damping. For five times higher $T_e$ the maximum growth rate of the
+instability is greatly increased, yet the range of real part of the
+phase velocities that are unstable is extremely narrow, residing at
+the bottom of the valley between the humps, where electron Landau
+damping is unimportant. This near-vertical branch of the imaginary
+zero-contour is completely separate from the ion-acoustic branches at
+left and right, which in this case are strongly Landau damped. The
+instability is therefore clearly not ion-acoustic, and could be called
+``ion-ion'', or perhaps ``ion-two-stream''. 
+
 
 Fig.\ \ref{separatehumps} shows a case by contrast in which two
 Gaussian humps have negligible overlap.
@@ -560,7 +668,7 @@ don't lead to instability. Stringer\footnote{T E Stringer, Plasma
 \Delta v/2 < \sqrt{T_e/m_i}$ for ion-ion instability when equal
 Maxwellian ion distributions are separated by velocity $\Delta v$.
 
-\section{Other Wave Situations}
+\section{Oblique Propagation}
 
 So far the analysis has been of electrostatic waves either in an
 unmagnetized plasma or propagating parallel to the magnetic field.
@@ -568,7 +676,7 @@ Moreover here and in subsequent analyses the distribution function to
 be used has been the one dimensional distribution, i.e.\ integrated
 over velocities perpendicular to the wavevector $\bm k$.  
 
-\subsection{Magnetized Beam-like Ion distributions}
+\subsection{Beam-like Ion distributions in 3-D}
 If the ion distribution in three velocity directions were really
 represented by two shifted but otherwise isotropic finite width beams
 (e.g.\ shifted 3-D Gaussians) and the plasma were unmagnetized, then
@@ -585,28 +693,73 @@ $\bm{k.\Delta v}/k \gtrsim 2\sqrt{T_e/m_i}$ for \emph{all possible
 because we can make the wave vector and shift directions as near to
 perpendicular as we like. 
 
-The most common situation for oblique propagation of ion waves is that
-the electron cyclotron frequency is much higher than that of the
-waves, while the ion cyclotron frequency is much lower. Thus to a
-first approximation electrons are strongly magnetized, moving only
-parallel to the magnetic field, while ions are unmagnetized. Since the
-magnetization of electrons changes their susceptibility only by
-replacing $v,\ v_p$ in the integral by $v_\parallel,\ v_{p\parallel}$,
-or equivalently making the argument of eq.\ \ref{chiefull}
-$x=\omega/k_\parallel \sqrt{2T_e/m_e}$, oblique propagation mostly
-narrows the effective electron distribution, enhancing electron Landau
-damping at the low speeds typical of ion waves. However, as we have
-just seen, electron Landau damping is a relatively unimportant effect
-for controlling the ion-ion instability of separated beams. Electrons'
-more important influence is in setting the height of the combined
-distribution function and thereby affecting the real part of the
-susceptibility. That is not changed by propagation angle.
+In general then, unmagnetized plasmas with two widely spaced ion beams
+are hardly ever completely stabilized against ion-ion instability,
+because along some angle of propagation relative to the spacing, they are
+not widely spaced. (However, a spherically symmetric hollow distribution could
+be stable.)
 
-In general then, unmagnetized plasmas are hardly ever stabilized by
-having widely spaced beam distribution. Maybe a hollow sphere could do it. 
+The most common magnetized situation for oblique propagation of ion
+waves is that the electron cyclotron frequency is much higher than
+that of the waves, while the ion cyclotron frequency is much
+lower. Thus to a first approximation electrons are strongly
+magnetized, moving only parallel to the magnetic field, while ions are
+unmagnetized. Since complete magnetization of electrons changes their
+susceptibility only by replacing $v,\ v_p$ in the integral by
+$v_\parallel,\ v_{p\parallel}$, or equivalently making the argument of
+eq.\ \ref{chiefull} $x=\omega/k_\parallel \sqrt{2T_e/m_e}$, oblique
+propagation relative to the magnetic field mostly narrows the
+effective electron distribution, enhancing electron Landau damping (or
+growth) at the low speeds typical of ion waves, for constant
+$f_{ik}(v_k)$. However, as we have just seen, electron Landau damping
+is a relatively unimportant effect for controlling the ion-ion
+instability of separated beams. Electrons' more important influence is
+in setting the height of the combined distribution function and
+thereby affecting the real part of the susceptibility. That is not
+changed by magnetizing the electrons at an angle to $k$.
 
+\subsection{Oblique Electron-Ion instability}
 
+By contrast, if a positive slope of the electron distribution in the
+direction away from the mean ion velocity exists at the resonant
+velocity, as it does for ion-acoustic or Buneman instabilities, giving
+a local minimum in the combined distribution, the enhancement of
+parallel \emph{slope} of magnetized electron distribution at oblique
+propagation can lead to enhanced instability.  Oblique propagation for
+magnetized electrons makes the electron contribution depend on the
+angle $\theta$ between ${\bf k}$ and ${\bf B}$, because at constant
+$v_{p\parallel}$, $\partial f /\partial v_k$ is proportional to
+$1/\cos(\theta)=\sqrt{1+v_\perp^2/v_\parallel^2}$. Lower Hybrid waves
+can then experience instability when $\cos(\theta)$ is small.
+Magnetization of the electrons (but not ions response) makes the Penrose
+combined distribution
+$f_i(v_k)+f_{e\parallel}(v_{e\parallel})m_i/m_e=f_i(v_k)+f_{e\parallel}(v_kk/k_\parallel)m_i/m_e$. Then
+the electron velocity scale of the electron contribution in Figure
+\ref{fig:penrose} changes with the propagation angle
+$\theta=\cos^{-1}(k_\parallel/k)$. The electron contribution becomes
+narrower in $v_k$ as the corresponding $v_{e\parallel}=v_k/\cos\theta$
+increases, but without changing in height. Consequently its derivative
+with respect to $v_k$ increases.
 
+The direction of the ion distribution components' shift
+$\bm\Delta\bm v$ is taken as being along $\bm B$, so the same
+geometrical compression factor $\cos\theta$ applies for ion velocity
+shifts and electron distribution. However, Lower Hybrid waves in some
+circumstances must account for an extra partially-magnetized electron
+response term $\chi_{e\perp}=(\omega_{pe}/\Omega_e)^2\sin^2\theta$
+added to the parallel susceptibility
+$\chi_{e\parallel}$. This term $\chi_{e\perp}$ is not $\propto 1/k^2$,
+so its relative influence depends on $k$ as well as $v_p$. However,
+it is a positive definite real term added to $\chi_e$, so its
+influence is always to reduce the (unshaded) area of the contour plot
+in which $\Re(k^2\lambda_{De}\chi)<0$, no matter the value of $k$. It
+does not change $\Im(k^2\lambda_{De}\chi)$ so the contour of
+$\Im(k^2\lambda_{De}\chi)=0$ remains unchanged. Therefore addition of
+$\chi_{e\perp}$ reduces the range of phase-velocities over which
+solutions of the dispersion relation exists, and cannot itself induce
+instability in an otherwise stable plasma.
+
+\section{Electron Waves}
 
 \subsection{Electron Langmuir Waves}
 \label{elecLang}
@@ -618,7 +771,7 @@ arbitrary electron distribution function. Regard that distribution as
 being given by the upper frame of the plot (what in the ion acoustic
 analysis is the ion distribution function). Take the reference
 velocity to be $\sqrt{T_0/m_e}$. The dispersion relation is then
-$\chi_e=-1$. Since shape of the distribution function and the complex
+$\chi_e=-1$. Since the shape of the distribution function and the complex
 $v_p$ together determine the value of $k^2\lambda_D^2 \chi_e$ (eq.\
 \ref{ionint}), the dispersion relation is satisfied for some real
 value of $k$ at points in $v_p$ space where the value of the real part
@@ -626,7 +779,18 @@ of $k^2\lambda_D^2 \chi_e$ is negative and the value of its imaginary
 part is zero, just as before.  Therefore we exchange the roles of
 electrons and ions. We consider the plot to be for electron
 susceptibility. The solution of the dispersion relation is where the
-imaginary part is zero and the real part is negative. This reversal of
+imaginary part is zero and the real part is negative. (Using the
+special value switch \verb!-T99!, is programmed turn off extra Maxwellian
+electron influence and to label the plots for electrons
+rather than ions, as illustrated in Fig.\ \ref{langmuir}.)
+\begin{figure}[ht]
+\center
+\includegraphics[width=0.7\hsize]{langmuir}
+\caption{Langmuir wave pure electron case with double humped
+  distribution, giving warm two-stream instability.\label{langmuir}}  
+\end{figure}
+
+This reversal of
 roles helps one to understand the qualitative difference between ion
 acoustic stability and Langmuir stability. It lies purely in the fact
 that non-zero electron susceptibility shifts the real contours of the
@@ -643,30 +807,34 @@ electron-acoustic wave. There is nothing particularly different about
 such waves except that normal Langmuir waves are strongly damped
 unless their phase speed substantially exceeds the electron thermal
 speed. That criterion, $\omega/k\gg \sqrt{T_e/m_e}$, is equivalent to
-$k\lambda_{De}\ll 1$, taking $\omega\simeq \omega_{pe}$. By contrast
-we can model a hot electron component and a cold electron component,
-with negligible ion response by
-suppressing code electron response with $T_e$ large, and then treat
-the code's ion components as actually being electrons. (For example
-\verb!chiofv -T30 -v1,-1,5,5 -v.1,.2,.1,.1!.) An electron-acoustic
-mode becomes undamped or even growing if there is sufficient offset
-between the hot and cold components as to create a local minimum in
-the electron distribution.
+$k\lambda_{De}\ll 1$, taking $\omega\simeq \omega_{pe}$. By adding a
+hot electron component when prescribing electrons only, an
+electron-acoustic mode can be permitted that is weakly damped or
+growing. Figure \ref{fig:eamode2} illustrates a case. It is no
+coincidence that this figure looks rather similar to the ion-tail case
+Fig. \ref{flattail}. It is debatable whether there is any meaningful
+distinction between an ``electron acoustic instability'' and an
+extended-``bump-on-tail'' instability. Their mechanisms are of course the
+same. 
 
 
+\iffalse
 The equivalent effect can be better obtained by setting the ion to
 electron mass ratio to one and treating the electron species as the
 hot electron component and the ion species as the cold electron
 species. The code runs quicker and chooses more convenient velocity
-ranges. (For example \verb!chiofv -v1.,1.,.05,.05 -r1!.)
+ranges. (For example \verb!chiofv -v1.,1.,.05,.05 -r1! as in Fig.\
+\ref{fig:eamode2}.) However, the total electron density is then
+effectively equal to 1 plus the prescribed shifted 'ion' component
+density (1 in this case). So the solution region is bounded by the
+real contour value -2 rather than -1.
+\fi
 
 \begin{figure}[htp]
   \centering
-  \includegraphics[width=.7\hsize]{eamode}
-  \caption{Electron-acoustic mode modelled by putting the ion mass
-    equal to the electron mass. And specifying low ion temperature
-    shifted Maxwellian. }
-  \label{fig:eamode}
+  \includegraphics[width=.7\hsize]{eamode2}
+  \caption{Unstable electron-acoustic mode ignoring ion response.}
+  \label{fig:eamode2}
 \end{figure}
 
 \section{Group Velocity}
@@ -685,7 +853,7 @@ We substitute the value $k^2\lambda_{D}^2$, from eq.\
 (\ref{ksquared}), which is what is contoured in the plots. And we
 recognize that the second term by which $v_g$ differs from $v_p$ is
 simply half the scale length of the variation of $k^2\lambda_{D}^2$ as
-a function of $v_P$. Since (except for the zero level) the contours
+a function of $v_p$. Since (except for the zero level) the contours
 are logarithmic in the ratios 1,2,5, the distance between the
 function's contours is approximately the scale length of the function.
 
