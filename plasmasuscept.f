@@ -26,7 +26,8 @@ c Algorithm 680 below.
          write(*,*)'chihat overflow'
          chihat=0.
       else
-         chihat=1. + complex(0.,sqrt(3.1415926))*z*complex(u,v)
+         chihat=1. + complex(0.,sqrt(3.1415926))*z
+     $                 *complex(real(u),real(v))
       endif
 c      write(*,*)xi,yi,chihat
       end
