@@ -13,11 +13,13 @@
       parameter (nv=400,npts=200,nimax=60,nim2=2*nimax+1,nmmax=-nimax)
 ! Input to the analysis routines on nv-mesh distrib, velocity, f^prime.
       real f(0:nv+2),v(0:nv+2),ww(0:nv+2)
+! Storage for extra wider plot of fe(v) 
+      real fep(1:nv),vep(1:nv)
 ! Intermediate analysis output on npts mesh
       real vp(npts),fv(npts),fvex(npts),fvcomb(npts)
 ! Final chi(vp) for complex grid.
       real cvreal(npts,-nimax:nimax),cvimag(npts,-nimax:nimax)
-      real ceimag(npts,-nimax:nimax)
+      real ceimag(npts,-nimax:nimax),cereal(npts,-nimax:nimax)
 ! Contouring work array:
       character cworka(npts,-nimax:nimax)
       character ilb
@@ -30,7 +32,7 @@
       integer npar
       parameter (npar=4,ngmax=6)
 ! Parameters; density, velocity shift, vtperp, vtparallel.      
-      real gpar(npar,ngmax)
+      real gpar(npar,ngmax),gepar(npar,ngmax)
       real fstat(ngmax)
       real theta
       complex cvint,vpec,chihat,chie
@@ -49,7 +51,7 @@
 
 ! Default: Plot to screen
       call pfset(3)
-      call dcharsize(.02)
+      call charsize(.02,.02)
       ilb='i'
       fflat=0.
 ! Silence warnings.
@@ -58,10 +60,10 @@
       vwfac=6.
 ! Default gaussian data:
       ng=1
-      gpar(1,1)=1.
-      gpar(2,1)=0.
-      gpar(3,1)=1.
-      gpar(4,1)=1.
+      gpar(:,1)=[1.,0.,1.,1.]
+      nge=1
+      gepar(:,1)=[1.,0.,1.,1.]
+! And other defaults
       theta=0.
       Te=1.
       rmitome=1836
@@ -84,14 +86,14 @@
       call parsecmdline(gpar,npar,ngmax,ng,vdmin,vdmax,vw,Te,theta       &
      &     ,vwfac,vpimax,nim,nmm,nimax,smfac,laspect,lcolor,eldweight    &
      &     ,vflat,wflat,fflat,lextra,amp,nw,lgrowth,lcoptic,cfilename    &
-     &     ,ltwotone,vrgfac,lthresh,rmitome,omegac,lcombplot)
+     &     ,ltwotone,vrgfac,lthresh,rmitome,omegac,lcombplot,gepar,nge)
 !---------------------------------------------------------------
       if(.not.lcoptic)then
 ! Construct the test distribution function as a sum of Gaussians.
 ! Scale to sound-speed units assuming inputs relative to Ti=1:
          if(vdmax.eq.0.01)vdmax=-100.
          if(vdmin.eq.0.01)vdmin=100.
-         if(Te.eq.99.)then
+         if(Te.eq.99.)then  ! No electrons.
             Te=1.
             lelectrons=.false.
             ltwotone=.false.
@@ -100,18 +102,20 @@
  ! Avoid label clash.
             vpimax=(real(int(vpimax*10.))+.5)/10.
          endif
+! Decide vp-range-width vw.
+         ct=cos(theta)
          do i=1,ng
-            ct=cos(theta)
             gpar(2,i)=gpar(2,i)/sqrt(Te)
             gpar(3,i)=gpar(3,i)/(Te)
             gpar(4,i)=gpar(4,i)/(Te)
             if(gpar(2,i)*ct.gt.vdmax)vdmax=gpar(2,i)*ct
             if(gpar(2,i)*ct.lt.vdmin)vdmin=gpar(2,i)*ct
          enddo
-         vw=vwfac*sqrt(max(gpar(3,1),gpar(4,1)))
+!         vw=vwfac*sqrt(max(gpar(3,1),gpar(4,1)))
+         vw=vwfac*sqrt(maxval(gpar(3,1:npar)))
          dv=(vdmax-vdmin+2.*vw)/nv
          v0=vdmin-vw
-         write(*,*)'vdmin,vdmax',vdmin,vdmax
+!         write(*,*)'vwfac,vdmin,vdmax',vwfac,vdmin,vdmax
 
 ! Calculate total ion density
          pne=0.
@@ -137,7 +141,7 @@
          call COPTICverif(nv,dv,v0,f)
 ! Distribution created.
       else
-! External data
+! External data from coptic
          open(13,file=cfilename, form='formatted',status='old',err=101)
          read(13,*) nvin
          read(13,*) dv
@@ -162,7 +166,8 @@
          enddo
          vavei=0
          fwt=0
-      endif
+      endif  ! End of ion distribution initialization. 
+! Find the average ion velocity.
       do i=0,nv+2
          v(i)=(v0+i*dv)
          vavei=vavei+f(i)*v(i)
@@ -172,18 +177,17 @@
 ! Increment Smoothing of analytic continuation based on ranges.
       smfac=smfac+ 10.*(npts/(3.*nv))*dv/vpimax
 
-! Correct the electron susceptibility for propagation angle theta
+! Find electron susceptibility weight for propagation angle theta
       if(cos(theta).gt.0.)then 
          eldweight=eldweight/cos(theta)
       else
          write(*,*)'CosTheta is non-positive',theta,cos(theta)           &
      &        ,' no angle factors.'
       endif
-
-! Perhaps add noise?
+!-----------------------------------------------------------------
+! Perhaps add noise to ion distribution ?
       call addnoise(nv,f,amp)
-! Perhaps smooth:
-!      write(*,*)'nw',nw
+! Perhaps smooth it :
       if(nw.gt.0)call trismooth(nv-3,nw,f(3),ww,f(3))
 !-----------------------------------------------------------------
 ! Prevent using twotone plot of chi_i if ion shift is large
@@ -193,8 +197,10 @@
          ltwotone=.false.
       endif
 !-----------------------------------------------------------------
-! Calculate the chi along just the real axis for thresholds
       if(lthresh)then
+! I don't recall what this code section is for. But it often terminates
+! the execution. 
+! Calculate the chi along just the real axis for thresholds
          call stationary(nv,f,ngmax,fstat,nstat)
          if(nstat.eq.3)then
 ! Find fractional depth assuming that the middle one is the local minimum.
@@ -205,10 +211,10 @@
          else
             write(*,*)'Incorrect number of stationaries',nstat
          endif
-         call chiion(v0,dv,f,nv,   fv,vp,npts,fmax                       &
+         call chiion(v0,dv,f,nv,fv,vp,npts,fmax                       &
      &     ,nimax,0,0,vpi,vpimax,smfac,cvreal,cvimag)
 !         write(*,'(i5,3f8.4)')(i,vp(i),cvreal(i,0),cvimag(i,0),i=1,npts)
-         do i=npts/10,npts-1
+         do i=npts/10,npts-1  ! Test if this calculation makes sense.
             if(cvimag(i,0)*cvimag(i+1,0).le.0.and.cvreal(i,0).le.0)then
                ri=cvimag(i,0)/(cvimag(i,0)-cvimag(i+1,0))
                cvr0=ri*cvreal(i+1,0)+(1-ri)*cvreal(i,0)
@@ -221,46 +227,70 @@
          enddo
       endif
 !-----------------------------------------------------------------
-! Calculate chi-ion from it. Ought to be rationalized with above call.
-      call chiion(v0,dv,f,nv,   fv,vp,npts,fmax                          &
+! Calculate chi-ion from it. This is the main calculation of chi arrays
+      call chiion(v0,dv,f,nv,fv,vp,npts,fmax                          &
      &     ,nimax,nim,nmm,vpi,vpimax,smfac,cvreal,cvimag)
+! This is where we should put the multigaussian ion chi calculation.
 
-      vte2=2.*rmitome
+
+      vte2=2.*rmitome !The assumption is that Te=T0 giving v-units.
+      fvexmax=-1.e-6
       if(lelectrons)then
-! Get chi electron and add on real part, and imag for original plot.
-! Also construct the effective electron distribution fvex.
-         fvexmax=-1.e-6
-         vefactor=1./sqrt(vte2)
+! Get chi electron and add on real and imag parts for original plot.
          ct=cos(theta)
          if(ct.gt..01)then
-            vefactor=vefactor/ct
+            vefactor=1./(ct*sqrt(vte2))
          else
             write(*,*)'Dangerously low cos theta',ct,theta
             stop
          endif
+! Also construct the effective electron distribution fvex.
+!         write(*,*)'nge=',nge
          fvex=0.
          do j=1,npts
             do k=nmm,nim
-               vpec=cmplx(vp(j),vpi(k))*vefactor
-               chie=chihat(vpec)
+               chie=0.
+               do l=1,nge  ! Multigaussian calculation
+                  vpec=cmplx(vp(j)-gepar(2,l),vpi(k))*gepar(1,l)     &
+                       &    /(ct*sqrt(2.*rmitome*gepar(4,l)))
+                  chie=chie+chihat(vpec)
+               enddo
                if(.not.ltwotone)then
                   cvimag(j,k)=cvimag(j,k)+imag(chie)
                   cvreal(j,k)=cvreal(j,k)+real(chie)
                endif
+               cereal(j,k)=real(chie)
                ceimag(j,k)=imag(chie)
             enddo
-            fvex(i)=rmitome/sqrt(3.141593*vte2)                       &
-                 &              *(exp(-(vp(i)/ct)**2/vte2))
+            do l=1,nge
+               fvex(j)=fvex(j)+gepar(1,l)*rmitome/sqrt(3.141593*2.*rmitome)&
+               & *exp(-((vp(j)-gepar(2,l))/ct)**2/(2.*rmitome*gepar(4,l)))
+            enddo
          enddo
       endif
-! Calculate the electron distribution function effective shape.
-      do i=1,npts
-         fvcomb(i)=fv(i)+fvex(i)
+! Calculate the effective distribution function shape.
+      do j=1,npts
+         fvcomb(j)=fv(j)+fvex(j)
       enddo
 !---------------------------------------------------------------
 
 ! Usually unused plots:
       if(lextra)then
+! Plot the wide electron distribution.
+         vgtmax=maxval(gepar(4,1:nge))*sqrt(rmitome)
+         vgemin=minval(gepar(2,1:nge))-2*vgtmax
+         vgemax=maxval(gepar(2,1:nge))+2*vgtmax
+         do j=1,nv
+            vep(j)=vgemin+(vgemax-vgemin)*(j-1)/(nv-1)
+            do l=1,nge
+               fep(j)=fep(j)+gepar(1,l)*rmitome/sqrt(3.141593*2.*rmitome)&
+               & *exp(-((vep(j)-gepar(2,l))/ct)**2/(2.*rmitome*gepar(4,l)))
+            enddo
+         enddo
+         call autoplot(vep,fep,nv)
+         call axlabels('v/(T!d0!d/m!di!d)','(m!di!d/m!de!d)f!de!d')
+         call pltend
+! Penrose style real vp plots.
          call realvpplot(vp,cvreal(1,0),cvimag(1,0),npts,nimax+1)
          call argdiagplot(cvreal(1,0),cvimag(1,0),npts,Te)
 !         call vertslice(vpi(-nim),npts,nim, cvreal(1,-nim))
@@ -295,21 +325,21 @@
          call dashset(2)
          call color(3)
          ff=-fmax
-         do i=1,npts
-            fvex(i)=rmitome/sqrt(3.141593*vte2)                          &
-     &           *(exp(-(vp(i)/ct)**2/vte2)-1.)+fmax
-            if(fvex(i).gt.fvexmax)fvexmax=fvex(i)
-         enddo
-         if(fvex(nrmin).lt.ff.or.fvex(nrmax).lt.ff.or.fvexmax.lt.0)      &
-     &        then 
-!           Donot use suppressed zero
-            write(*,*)fvex(1),fvex(npts),ff
+         fvexmax=maxval(fvex)
+         if((fvex(nrmin)-fvexmax).lt.ff                             &
+              .or.(fvex(nrmax)-fvexmax).lt.ff.or.fvexmax.lt.0)then 
+!  Do not use suppressed zero
+            write(*,*)fvex(1),fvex(npts),fmax,fvexmax
             do i=1,npts
-               fvex(i)=fmax*exp(-(vp(i)/ct)**2/vte2)
+               fvex(i)=(fmax/fvexmax)*fvex(i)
             enddo
             call legendline(.5,.95,0,                                    &
      &           ' (f!dimax!d/f!demax!d).f!de!d(v)')
-         else
+         else      !  Suppressed zero
+            do i=1,npts
+               fvex(i)=(fvex(i)-fvexmax)+fmax
+               if(fvex(i).gt.fvexmax)fvexmax=fvex(i)
+            enddo
             call legendline(.5,.95,0,                                    &
      &           ' (f!de!d(v)-f!de!d(0))m!di!d/m!de!d+f!dimax!d')
          endif
@@ -321,7 +351,8 @@
      &     ,cvimag(1,nmm),ceimag(1,nmm),cworka,laspect,lcolor,ltwotone)
       call multiframe(0,0,0)
 ! Make the cvreal the total chi if it is not already (for acpplot).
-      if(ltwotone)cvreal=cvreal+1.
+      if(ltwotone)cvreal=cvreal+cereal
+      if(ltwotone)cvimag=cvimag+ceimag
 ! Calculate parameters along contours and plot:
       if(lgrowth)call acpplot(vp,vpi(nmm),vavei,npts,nim,nmm,cvreal(1    &
      &     ,nmm),cvimag(1,nmm),cworka,laspect,lcolor)
@@ -969,26 +1000,27 @@
       subroutine parsecmdline(gpar,npar,ngmax,ng,vdmin,vdmax,vw,Te,theta &
      &     ,vwfac,vpimax,nim,nmm,nimax,smfac,laspect,lcolor,eldweight    &
      &     ,vflat,wflat,fflat,lextra,amp,nw,lgrowth,lcoptic,cfilename    &
-     &     ,ltwotone,vrgfac,lthresh,rmitome,omegac,lcombplot)
+     &     ,ltwotone,vrgfac,lthresh,rmitome,omegac,lcombplot,gepar,nge)
       integer npar,ngmax
-      real gpar(npar,ngmax)
+      real gpar(npar,ngmax),gepar(npar,ngmax)
       real vdmin,vdmax,vw,Te,theta,vwfac,amp
       logical laspect,lcolor,lextra,lgrowth,lcoptic,ltwotone,lthresh
       logical lcombplot
       character*50 cfilename
 
       character*50 argument
-      logical lgset
-      data lgset/.false./
+      logical lgset,lgeset
+      data lgset/.false./lgeset/.false./
       argument=' '
       eld=1.
       nw=0
       ng=1
+      nge=1
 
 ! Deal with arguments.
       do ia=1,iargc()
          call getarg(ia,argument)
-         write(*,*)argument(1:10)
+         write(*,*)argument(1:20)
          if(argument(1:1).ne.'-')then
             if(.not.lcoptic)then
 !        Read the input file.
@@ -1043,7 +1075,11 @@
                ltwotone=.not.ltwotone
             endif
             if(argument(1:2).eq.'-r')read(argument(3:),*,err=103)rmitome
-            if(argument(1:2).eq.'-v')then
+            if(argument(1:3).eq.'-ve')then
+               if(lgeset)nge=nge+1
+               read(argument(4:),*,err=103,end=105)(gepar(k,nge),k=1,4)
+               lgeset=.true.
+            elseif(argument(1:2).eq.'-v')then
                if(lgset)ng=ng+1
                read(argument(3:),*,err=103,end=105)(gpar(k,ng),k=1,4)
                lgset=.true.
@@ -1115,9 +1151,11 @@
       write(*,*)'-d disable display of plots'
       write(*,*)'-e ELD weight factor'
       write(*,*)'-p integer width of smoothing triangle box',nw
-      write(*,'(a,4f7.2,a)')' -v<n>,<v>,<Tpp>,<Tpl> Specify Gaussian ['  &
+      write(*,'(a,4f7.2,a)')' -ve<n>,<v>,<Tpp>,<Tpl> Electron Gaussian ['  &
      &     ,(gpar(i,ng),i=1,4),']'
-      write(*,*)'   First -v overwrites default, succeeding adds new'
+      write(*,'(a,4f7.2,a)')' -v<n>,<v>,<Tpp>,<Tpl>  Ion Gaussian      ['  &
+     &     ,(gpar(i,ng),i=1,4),']'
+      write(*,*)'   First -v[e] overwrites default, succeeding adds new'
       write(*,*)'-f flatspot: -fv center-velocity -fw width'             &
      &     ,' -ff slope-factor'
       write(*,*)'-COPTIC : toggle external distribution reading lcoptic'
