@@ -35,7 +35,7 @@
       real gpar(npar,ngmax),gepar(npar,ngmax)
       real fstat(ngmax)
       real theta
-      complex cvint,vpec,chihat,chie
+      complex cvint,vpec,chihat,chie,chii
       external cvint,chihat
       integer nim,nmm,nvin
       logical laspect,lcolor,lextra,lgrowth,lcoptic,ltwotone,lthresh
@@ -229,10 +229,41 @@
       endif
 !-----------------------------------------------------------------
 ! Calculate chi-ion from it. This is the main calculation of chi arrays
-      call chiion(v0,dv,f,nv,fv,vp,npts,fmax                          &
-     &     ,nimax,nim,nmm,vpi,vpimax,smfac,cvreal,cvimag)
-
-! This is where we should put the multigaussian ion chi calculation.
+      if(lcoptic)then
+! Returns cvreal, cvimag ion susceptibility arrays for given numerical f.
+         call chiion(v0,dv,f,nv,fv,vp,npts,fmax                          &
+              &     ,nimax,nim,nmm,vpi,vpimax,smfac,cvreal,cvimag)
+      else
+! The multigaussian ion chi calculation.  It needs to construct
+! vp,fv(vp),fmax,vpi,cvreal,cvimag which ciion also does internally.
+         fmax=0.
+         do j=1,npts
+            vp(j)=v0+dv+dv*(nv-1)*(j-1.)/(npts-1.)
+            fv(j)=0.
+            do l=1,nge
+               fv(j)=fv(j)+gpar(1,l)/sqrt(3.141593*2.*gpar(4,l)) &
+                    *exp(-((vp(j)-gpar(2,l))/ct)**2/(2.*gpar(4,l)))
+            enddo
+            if(fv(j).gt.fmax)fmax=fv(j)
+         enddo
+         vpi(0)=0.
+         do k=1,max(nim,nmm)
+            vpi(k)=vpimax*k/nim
+            vpi(-k)=-vpimax*k/nim
+         enddo
+         do j=1,npts
+            do k=nmm,nim
+               chii=0.
+               do l=1,nge  ! Multigaussian calculation
+                  vpec=cmplx(vp(j)-gpar(2,l),vpi(k))     &
+                       &    /(ct*sqrt(2.*gpar(4,l)))
+                  chii=chii+chihat(vpec)*gpar(1,l)/gpar(4,l)
+               enddo
+               cvreal(j,k)=real(chii)
+               cvimag(j,k)=imag(chii)
+            enddo
+         enddo
+      endif
 !-----------------------------------------------------------------
 ! Find electron susceptibility weight for propagation angle theta
       if(cos(theta).gt.0.)then 
