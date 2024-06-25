@@ -5,8 +5,9 @@ c The plasma susceptibility for a maxwellian distribution of electrons
 c can be considered to be 1/(k\lambda_{De})^2 times a function 
 c that can be written 
 c               \hat{\chi}(z) = (-i\sqrt{\pi}/2) w'(z), 
-c with z = (\omega/k)/sqrt{2T_e/m_e}
+c with z = (\omega/k)/sqrt{2T_e/m_e}=v_phase/sqrt{2T_e/m_e}
 c and w(z)=\exp(-z^2)\mbox{erfc}(-iz) is the Faddeeva function.
+c It is related to the Fried-Conte function by Z(z)=i*sqrt(Pi)*w(z).
 c To calculate w' one can use the recurrence relation
 c  w'(z) = -2zw(z) + 2i/\sqrt{\pi} 
 c so that
