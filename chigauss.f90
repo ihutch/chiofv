@@ -97,11 +97,13 @@
       do i=1,nge
          write(*,'(a,i3,5f8.3)')' Electron   ',i,(gepar(j,i),j=1,4),T0
       enddo
+!-----------------------------------------------------------------
       if(.not.lcoptic)then
-! Construct the test distribution function as a sum of Gaussians.
+! Construct the distribution function as a sum of Gaussians.
 ! Scale to sound-speed units assuming inputs relative to Ti=1:
          if(vdmax.eq.0.01)vdmax=-100.
          if(vdmin.eq.0.01)vdmin=100.
+!         write(*,*)i,gpar(2,i),vdmin,vdmax
          if(T0.eq.99.)then  ! No electrons.
             T0=1.
             lelectrons=.false.
@@ -119,12 +121,11 @@
             gpar(4,i)=gpar(4,i)/(T0)
             if(gpar(2,i)*ct.gt.vdmax)vdmax=gpar(2,i)*ct
             if(gpar(2,i)*ct.lt.vdmin)vdmin=gpar(2,i)*ct
+!            write(*,*)i,gpar(1,i),gpar(2,i),vdmin,vdmax
          enddo
-!         vw=vwfac*sqrt(max(gpar(3,1),gpar(4,1)))
-         vw=vwfac*sqrt(maxval(gpar(3,1:npar)))
+         vw=vwfac*sqrt(maxval(gpar(3,1:npar)))*vrgfac
          dv=(vdmax-vdmin+2.*vw)/nv
          v0=vdmin-vw
-!         write(*,*)'vwfac,vdmin,vdmax',vwfac,vdmin,vdmax
 
 ! Calculate total ion density
          pne=0.
@@ -150,7 +151,7 @@
          call COPTICverif(nv,dv,v0,f)
 ! Distribution created.
       else
-! External data from coptic
+! External data from coptic read from file
          open(13,file=cfilename, form='formatted',status='old',err=101)
          read(13,*) nvin
          read(13,*) dv
@@ -175,7 +176,9 @@
          enddo
          vavei=0
          fwt=0
-      endif  ! End of ion distribution initialization. 
+      endif  
+! End of ion distribution initialization. 
+!-----------------------------------------------------------------
 ! Find the average ion velocity.
       do i=0,nv+2
          v(i)=(v0+i*dv)
@@ -228,7 +231,7 @@
          enddo
       endif
 !-----------------------------------------------------------------
-! Calculate chi-ion from it. This is the main calculation of chi arrays
+! Calculate chi-ion from f. This is the main calculation of chi arrays
       if(lcoptic)then
 ! Returns cvreal, cvimag ion susceptibility arrays for given numerical f.
          call chiion(v0,dv,f,nv,fv,vp,npts,fmax                          &
@@ -240,7 +243,7 @@
          do j=1,npts
             vp(j)=v0+dv+dv*(nv-1)*(j-1.)/(npts-1.)
             fv(j)=0.
-            do l=1,nge
+            do l=1,ng
                fv(j)=fv(j)+gpar(1,l)/sqrt(3.141593*2.*gpar(4,l)) &
                     *exp(-((vp(j)-gpar(2,l))/ct)**2/(2.*gpar(4,l)))
             enddo
@@ -254,7 +257,7 @@
          do j=1,npts
             do k=nmm,nim
                chii=0.
-               do l=1,nge  ! Multigaussian calculation
+               do l=1,ng  ! Multigaussian calculation
                   vpec=cmplx(vp(j)-gpar(2,l),vpi(k))     &
                        &    /(ct*sqrt(2.*gpar(4,l)))
                   chii=chii+chihat(vpec)*gpar(1,l)/gpar(4,l)
@@ -399,6 +402,7 @@
          call dashset(0)
          call color(15)
       endif
+!      write(*,*)'ltwotone,cvreal(1,0)',ltwotone,cvreal(1,0)
       call chicontour(vp,vpi(nmm),npts,nrmin,nrmax,nim,nmm,cvreal(1,nmm) &
      &     ,cvimag(1,nmm),ceimag(1,nmm),cworka,laspect,lcolor,ltwotone)
       call multiframe(0,0,0)
@@ -1080,6 +1084,10 @@
                open(13,file=argument,form='formatted',status='old',err   &
      &              =101)
                read(13,*,end=102)theta,T0
+               if(.not.lgeset)then ! Set default Te=T0
+                  gepar(3,1)=T0
+                  gepar(4,1)=T0
+               endif
                write(*,'(a,f8.3,a,f8.3)')'theta=',theta,'  T0=',T0
                ct=cos(theta)
                if(ct.le.0)then
@@ -1098,11 +1106,13 @@
                   read(13,*,end=102)(gpar(k,i),k=1,4)
                   write(*,'(a,i1,a,4f8.3)')'gpar(',i,')=',(gpar(k,i),k=1 &
      &                 ,4)
+               if(.false.)then
                   if(gpar(2,i).lt.vdmin)vdmin=ct*gpar(2,i)
                   if(gpar(2,i).gt.vdmax)vdmax=ct*gpar(2,i)
                   vwhere=vwfac*sqrt(sqrt(1-ct**2)*gpar(3,i)              &
      &                 +ct**2*gpar(4,i))
                   if(vwhere.gt.vw)vw=vwhere
+               endif
                enddo
             else
 !          File name of coptic data.
@@ -1194,7 +1204,8 @@
      &     ,'  [',nim,nmm,'] +ve,-ve. Negative range=n/m*vpimax'
       write(*,'(a,f7.2,a,f7.2,a)')' -Va maximum vreal of plot  [',       &
      &     vdmax,'] -Vi minimum vreal of plot  [',vdmin,']'
-      write(*,'(a,f7.4,a)')' -x horiz scaling for plot  [',vrgfac,']'
+      write(*,'(a,f7.4,a)')' -x  range scale for plot   ['               &
+           ,vrgfac,']  <1 plot partial,  >1 increase v-range' 
       write(*,'(a,f7.4,a)')' -u uncertainty (noise)     [',amp,']'
       write(*,'(a,f7.3,a,f7.3,a)')' -s smoothing factor        [',       &
      &     smfac,'] -w integration width factor[',vwfac,']'
