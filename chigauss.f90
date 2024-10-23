@@ -914,14 +914,17 @@
       xmax=3.2
       xmin=0.
       wimfac=1.
+      vpimx=-1.e6
+      cfimin=1.e6
+      cfimax=-1.e6
+      cfrmin=1.e6
+      cfrmax=-1.e6
+
+      do insize=0,1  
+! Do twice. The first time is just to get the plot size for all traces.
       do i=1,iacpcp-1
          icur=0
          id=0
-         vpimx=-1.e6
-         cfimin=1.e6
-         cfimax=-1.e6
-         cfrmin=1.e6
-         cfrmax=-1.e6
          do j=1,iacpcon(i+1)-iacpcon(i)
 ! Convert x,y values to fractional indexes then interpolate for chi
             xf=(1.+(xacp(iacpcon(i)+j)-vp(1))/(vp(npts)-vp(1))*(npts-1))
@@ -966,35 +969,35 @@
 ! Segment completed
 !         write(*,*)id,icur,vpimx,cfimin,cfimax
 !         if(id.gt.0.and.icur.gt.1 .and. vpimx.gt.-0.05)then
-         if(id.gt.0.and.icur.gt.1)then
+         if(id.gt.0.and.icur.gt.1.and.insize.eq.1)then
             if(iplotinit.eq.0)then !Initialize plot
 !         write(*,'(10f8.3)')(curfr(k),k=1,icur-1)
-            ymax=cfimax
-            ymin=cfimin
-            wimfac=(cfimax-cfimin)/(cfrmax-cfrmin)
-            wimfaclog=nint(log10(wimfac))
-            wimfacl5=wimfaclog-.5
-            wimfac=10.**(min(wimfaclog,wimfacl5))
+               ymax=cfimax
+               ymin=cfimin
+               wimfac=(cfimax-cfimin)/(cfrmax-cfrmin)
+               wimfaclog=nint(log10(wimfac))
+               wimfacl5=wimfaclog-.5
+               wimfac=10.**(min(wimfaclog,wimfacl5))
 !            write(*,*)'wimfac',wimfac
-            ymin=min(-.2,-max(abs(cfimin),abs(cfimax)))
-            ymax=max(.2,max(abs(cfimin),abs(cfimax)))
-            call pltinit(xmin,xmax,ymin,ymax)
-            call axis()
-            call axlabels('k!Al!@!dD!d','!Aw!@/!Aw!@!dpi!d')
-            call axptset(1.,0.)
-            call ticrev()
-            call altyaxis(1./wimfac,1./wimfac)
-            call axlabels('','!AI!@(!Aw!@)/!Aw!@!dpi!d')
-            call ticrev()
-            call axptset(0.,0.)
-            call winset(.true.)
-            call vecw(0.,0.,0)
-            call vecw(5.,0.,1)
-            call legendline(.63,.95,0,'!AR!@(!aw!@)-k!p!o_!o!qv!di!d')
-            call dashset(2)
-            call legendline(.02,.95,0,'!AI!@(!Aw!@)')
-            call dashset(0)
-            iplotinit=1
+               ymin=min(-.2,-max(abs(cfimin),abs(cfimax)))
+               ymax=max(.2,max(abs(cfimin),abs(cfimax)))
+               call pltinit(xmin,xmax,ymin,ymax)
+               call axis()
+               call axlabels('k!Al!@!dD!d','!Aw!@/!Aw!@!dpi!d')
+               call axptset(1.,0.)
+               call ticrev()
+               call altyaxis(1./wimfac,1./wimfac)
+               call axlabels('','!AI!@(!Aw!@)/!Aw!@!dpi!d')
+               call ticrev()
+               call axptset(0.,0.)
+               call winset(.true.)
+               call vecw(0.,0.,0)
+               call vecw(5.,0.,1)
+               call legendline(.63,.95,0,'!AR!@(!aw!@)-k!p!o_!o!qv!di!d')
+               call dashset(2)
+               call legendline(.02,.95,0,'!AI!@(!Aw!@)')
+               call dashset(0)
+               iplotinit=1
             endif
             ncur=ncur+1
 ! There is a curve to plot. Plot it.
@@ -1015,6 +1018,7 @@
 !               write(*,'(3f10.4)')curk(k),curfr(k),curfi(k)
 !            enddo
          endif
+      enddo
       enddo
       if(iplotinit.gt.0)call pltend()
       end
